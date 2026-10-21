@@ -19,3 +19,4 @@ The status of a proposal is indicated next to it with the following meanings:
 | [Hypermedia 3](./hypermedia-control-3/README.md)     | Paused   |
 | [Project Management](./project-management/README.md) | Accepted |
 | [WoT Projection Plans](./wot-projections/README.md) | In Progress |
+| [TD Composition and Reuse](./td-composition/README.md) | In Progress |
