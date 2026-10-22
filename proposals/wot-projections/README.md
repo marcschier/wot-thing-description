@@ -48,7 +48,7 @@ ordinary TD or TM to validate and use.
 - Defining a separate document format, stored document kind, registry format, or
   projection-specific media type.
 - Replacing or relaxing the existing semantics of `tm:extends`, `tm:submodel`, or ordinary
-  `tm:ref` references.
+  `tm:ref` references, or the separate proposed TD composition terms.
 - Defining runtime synchronization, notifications, or source update propagation.
 - Defining materialization into a platform-specific information model.
 - Granting or transferring credentials or access rights between the plan and its sources.
@@ -75,12 +75,19 @@ media type. A source entry may also state how interactions are routed, pin the s
 select all affordances, apply a name prefix to bulk selections, or provide a bounded
 predicate.
 
-An affordance-map member is an imported selection only when its `tm:ref` identifies a
+Explicit selectors use the proposed `td:ref` in TD envelopes and `tm:ref` in TM envelopes.
+The term follows the envelope kind, not the source kind. The
+[TD Composition and Reuse proposal](../td-composition/README.md) defines the proposed
+ordinary TD reference mechanism alongside `td:extends` and `td:subthing`; its terms are
+provisional. Projection selection across TD/TM sources remains a projection-specific feature,
+not permission for cross-kind ordinary composition.
+
+An affordance-map member is an imported selection only when its reference identifies a
 manifest source and points to an affordance in the corresponding map in that source. Such a
 selector's map key is the name of the affordance in the view. An affordance-map member that
-uses another valid form of `tm:ref` retains its ordinary TD/TM meaning. A member without a
-projection-selection reference is a local definition, validated according to the normal
-rules for the envelope.
+uses another valid form of reference retains the semantics of its own vocabulary. A member
+without a projection-selection reference is a local definition, validated according to the
+normal rules for the envelope.
 
 Selection may be explicit, whole-source, or predicate-based. Predicates are limited to
 declared affordance categories, semantic identifiers, and types; they do not execute
@@ -94,9 +101,9 @@ Processors should report displaced selections.
 
 Resolution copies selected definitions and their required document-local dependencies from
 their sources; it does not copy or modify a source document wholesale. A selector's
-`tm:ref` is consumed, while references on the source definition are retained and relocated
-to their resolved targets. Imported definitions retain source provenance. Local definitions
-remain owned by the plan and receive no synthetic provenance.
+reference member is consumed, while references on the source definition are retained and
+relocated to their resolved targets. Imported definitions retain source provenance. Local
+definitions remain owned by the plan and receive no synthetic provenance.
 
 Permitted annotations can describe an imported affordance without redefining its schema.
 The plan may contribute titles, descriptions, semantic metadata, types, and—when routing

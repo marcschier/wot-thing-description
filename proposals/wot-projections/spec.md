@@ -34,6 +34,10 @@ A projection plan is distinct from TM inheritance and reuse mechanisms such as `
 create a task-specific resolved envelope; it does not change the meaning of those existing
 mechanisms.
 
+The separate [TD Composition and Reuse proposal](../td-composition/README.md) introduces
+provisional `td:extends`, `td:subthing`, and `td:ref` terms for ordinary TD-to-TD use.
+Projection remains distinct from those proposed operators as well.
+
 ### 1.1 Conformance
 
 This proposal describes requirements for projection-plan authors, ordinary TD/TM admission
@@ -49,6 +53,14 @@ and MUST NOT return a success-shaped partial result.
 The examples use `wotproj:` for a proposed WoT projection vocabulary. Its namespace IRI,
 term names, and validation format have not been assigned. Example IRIs use
 `https://example.org/` and are placeholders, not stable identifiers.
+
+Explicit projection selectors use the proposed `td:ref` for TD envelopes and the existing
+`tm:ref` for TM envelopes. In this draft, **selector reference** means the applicable member
+for the envelope kind. The term is chosen by the envelope kind, not the source kind.
+`td:` denotes `https://www.w3.org/2019/wot/td#`; defining the proposed `td:ref` requires
+vocabulary, context, validation, and processing changes, not merely declaring a prefix.
+Cross-kind selections remain specific to marked projection plans; they do not extend
+ordinary TD-to-TD or TM-to-TM composition to cross-kind targets.
 
 ## 2. Terminology
 
@@ -95,8 +107,8 @@ The example vocabulary and syntax below are provisional:
   "@context": [
     "https://www.w3.org/2022/wot/td/v1.1",
     {
-      "tm": {
-        "@id": "https://www.w3.org/2019/wot/tm#",
+      "td": {
+        "@id": "https://www.w3.org/2019/wot/td#",
         "@prefix": true
       },
       "wotproj": "https://example.org/wot/projection#"
@@ -119,7 +131,7 @@ The example vocabulary and syntax below are provisional:
   ],
   "properties": {
     "pumpSpeed": {
-      "tm:ref": "./pump.td.json#/properties/pumpSpeed",
+      "td:ref": "./pump.td.json#/properties/pumpSpeed",
       "title": "Pump speed for condition monitoring",
       "wotproj:semanticId": "https://example.org/ontology/ConditionSignal"
     },
@@ -138,7 +150,7 @@ The example vocabulary and syntax below are provisional:
 }
 ```
 
-`pumpSpeed` is an imported selection because its `tm:ref` identifies a declared source and
+`pumpSpeed` is an imported selection because its `td:ref` identifies a declared source and
 points to an affordance in the matching map. `viewStatus` is a local definition because it
 does not use a projection-selection reference; it must satisfy ordinary TD requirements.
 
@@ -163,7 +175,7 @@ is resolved against the plan's effective base URI. A processor MUST verify the r
 document's actual kind and MUST NOT infer its kind only from a URI suffix.
 
 A source `href` MUST NOT contain a fragment, and no two manifest entries may resolve to the
-same absolute URI. To identify a source in a projection-selection `tm:ref`, a processor
+same absolute URI. To identify a source in a selector reference, a processor
 resolves the reference against the plan's effective base URI, separates its fragment, and
 matches the remaining absolute URI to exactly one resolved source `href`. The fragment is a
 URI-encoded RFC 6901 JSON Pointer. This matching rule makes the source manifest authoritative
@@ -191,22 +203,24 @@ report the pin as unverified and MUST NOT treat it as satisfied.
 ## 5. Selection
 
 An affordance-map member in `properties`, `actions`, or `events` is a projection selection
-when its `tm:ref` fragment is a JSON Pointer to a member of a source affordance map. The
-target map MUST match the plan member's category, and the target affordance MUST exist.
+when its selector reference fragment is a JSON Pointer to a member of a source affordance
+map. The target map MUST match the plan member's category, and the target affordance MUST exist.
 The source MUST be declared in `wotproj:projects` and MUST match exactly one source as
 specified in Section 4; an undeclared source, wrong-category target, or missing target is
 an error. The member key in the plan is the selected affordance's name in the resolved view
 and need not match the source name.
 
-A `tm:ref` whose fragment does not point into a source affordance map is not a projection
-selector. If it is otherwise valid, it retains its ordinary TD/TM reference semantics. A
-member without a projection-selection `tm:ref` is a local affordance definition.
+A selector reference whose fragment does not point into a source affordance map is not a
+projection selector. If it is otherwise valid, it retains the semantics of its vocabulary.
+A member without a projection-selection reference is a local affordance definition.
+The processor MUST reject an explicit projection selector using `tm:ref` in a TD envelope
+or `td:ref` in a TM envelope; it MUST NOT silently treat it as the other vocabulary's term.
 
 ### 5.1 Explicit selection and annotations
 
 An explicit selection names one affordance. Its member key names the affordance in the
-resolved view; its `tm:ref` identifies the source definition. It MAY add only the following
-annotation members:
+resolved view; its selector reference identifies the source definition. It MAY add only the
+following annotation members:
 
 - `title` and `titles`;
 - `description` and `descriptions`;
@@ -220,7 +234,7 @@ Annotations MUST NOT restate or change a source affordance's data schema. Additi
 Annotation IRIs are interpreted in the plan's effective context. Source-owned definition
 members retain their source's context.
 
-The selector's `tm:ref` is consumed during resolution. Any `tm:ref` or other defined
+The selector reference is consumed during resolution. Any `td:ref`, `tm:ref`, or other defined
 reference already present in the source affordance is retained and relocated according to
 Section 7.
 
@@ -252,7 +266,7 @@ not by compact spelling.
 
 ### 5.4 Local affordances
 
-A member of an affordance map without a projection-selection `tm:ref` is a local affordance.
+A member of an affordance map without a projection-selection reference is a local affordance.
 It is a complete definition validated under ordinary TD/TM rules, not an annotation. Its
 schema, forms, security, context, and extension terms are owned by the plan.
 
