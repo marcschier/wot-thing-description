@@ -3,19 +3,19 @@
 > [!NOTE]
 > Proposal Status: In Progress
 
-A Thing Model identifier alone does not tell a resolver which compatible version supplies the required definitions. The companion [specification draft](./spec.md) proposes version floors using `tm:minVersion` and a TD's `version.model`. The vocabulary and processing rules are provisional, not a W3C Recommendation.
+A WoT document identifier alone does not tell a resolver which revision supplies a referenced definition. The companion [specification draft](./spec.md) defines provisional `tm:minVersion` floors for TM references, `td:minVersion` floors for TD-to-TD composition, SemVer TD instance identity, and target-specific selection rules. The vocabulary and processing rules are proposals, not a W3C Recommendation.
 
 ## Summary
 
-A reference identifies a Thing Model (TM) by its stable `id` and can state a minimum model version. A version-aware resolver selects the highest eligible version at or above that floor. Versions under one identifier are backward compatible; a breaking change requires a new TM identifier. For reproducible resolution, the consumer retains the selected version and content digest outside the document.
+A reference identifies a TM or TD by its stable `id` and can state a minimum version of the target. A TM floor selects the highest eligible version at or above that floor. A TD floor selects within the same major version because the TD `id` identifies a concrete Thing; an unfloored TD reference can cross majors. A TD uses SemVer `version.instance` as its revision identity. For reproducible resolution, the consumer retains the selected version and content digest outside the document.
 
 ## Motivation
 
-A TM reference alone does not tell a resolver which compatible revision supplies the required definitions. A TD's `version.model` records its model revision, but does not by itself identify the `type` link to which that revision applies. The resolver needs that association to avoid resolving a TD that requires model `1.2.0` against `1.1.0`.
+A TM or TD reference alone does not tell a resolver which revision supplies the required definitions. A TD's `version.model` records its model dependency, while `version.instance` identifies its own revision. The resolver associates `version.model` only with a TM `rel:type` link; it does not infer a floor for a TD-to-TD reference from either version member.
 
 ## Goals
 
-- Define optional `tm:minVersion` on `tm:extends` and `tm:submodel` links, ordinary `tm:ref` objects, and TD `type` links.
+- Define optional `tm:minVersion` on TM references and TD `rel:type` links, and `td:minVersion` on TD-to-TD composition references.
 - Use the TD's `version.model` as an implicit floor when exactly one `type` link identifies its model.
 - Require explicit per-link floors when several `type` links identify models and the TD has `version.model`; without that member, per-link floors are optional.
 - Select the highest eligible SemVer version and fail if the floor cannot be satisfied.
@@ -25,13 +25,13 @@ A TM reference alone does not tell a resolver which compatible revision supplies
 ## Non-goals
 
 - Defining version ranges, document-embedded resolver pins, or registry-specific identifiers.
-- Versioning TD instance revisions with SemVer or extending TD-to-TD composition with model-version constraints.
+- Defining floors for other TD links or changing TD-to-TD composition semantics.
 - Defining a discovery protocol, registry storage model, compatibility checker, or automatic migration across breaking changes.
 - Changing how projections select definitions, preserve source ownership, or verify digests.
 
 ## Design
 
-`tm:minVersion` sets a minimum for the target TM's `version.model`. Its value is a SemVer 2.0.0 string without build metadata, not an exact-version pin or a version range. The referencing document's version and a registry's revision label do not determine the target version.
+`tm:minVersion` sets a minimum for the target TM's `version.model`. `td:minVersion` sets a minimum for the target TD's `version.instance` and caps selection below the next major. Both values use SemVer 2.0.0 without build metadata. An unfloored TD reference can select the highest eligible version across majors. A referencing TD's versions do not determine the target TD version.
 
 For a TD with exactly one `type` link, the effective floor is the greater of the link's explicit `tm:minVersion` and the TD's implicit `version.model` by SemVer precedence, or the only floor present. If a TD has several type links and `version.model`, each link requires `tm:minVersion`; its effective floor is the greater of those two values. A missing per-link floor produces `ambiguous-floor`. If the TD has no `version.model`, each type link uses its explicit floor when present. A link without one has no floor and does not cause an error.
 
@@ -47,10 +47,11 @@ The [example guide](./examples/README.md) covers model references and version na
 - [TD with one implicit type floor](./examples/td-single-type.jsonld).
 - [TD with two explicit type floors](./examples/td-multiple-types.jsonld).
 - [Deprecated major-version model with navigation links](./examples/tm-deprecated-v1.jsonld).
+- [TD composition floors and TD instance versions](./examples/td-extends.jsonld), [td-subthing.jsonld](./examples/td-subthing.jsonld), [td-ref.jsonld](./examples/td-ref.jsonld), [td-instance-v1.jsonld](./examples/td-instance-v1.jsonld), and [td-instance-v2.jsonld](./examples/td-instance-v2.jsonld).
 
 ## Relationship to other proposals
 
-[TD Composition and Reuse](../td-composition/spec.md) defines TD-to-TD operators. The version floors in this proposal apply to TM targets, not to TD instance revisions.
+[TD Composition and Reuse](../td-composition/spec.md) defines TD-to-TD operators. This proposal defines how their target TD version is selected; selection does not change composition semantics.
 
 [WoT Projection Plans](../wot-projections/spec.md) defines `wotproj:sourceDigest`, which pins the exact bytes of a source. That authored pin serves a different purpose from a version floor or a consumer-owned resolution record. [Section 8 of the draft](./spec.md#8-relationship-to-other-proposals) specifies how these constraints interact, including when a source contains a nested plan or dependencies.
 

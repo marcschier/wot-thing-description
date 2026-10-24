@@ -20,4 +20,4 @@ The status of a proposal is indicated next to it with the following meanings:
 | [Project Management](./project-management/README.md) | Accepted |
 | [WoT Projection Plans](./wot-projections/README.md) | In Progress |
 | [TD Composition and Reuse](./td-composition/README.md) | In Progress |
-| [Versioned References to Thing Models](./td-versioned-references/README.md) | In Progress |
+| [Versioned References between WoT Documents](./td-versioned-references/README.md) | In Progress |
