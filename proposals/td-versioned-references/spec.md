@@ -144,7 +144,7 @@ These cases assume unpinned resolution of one target identifier and no operator 
 | `1.3.0-rc.1` | — | No | Failure: no eligible release |
 | `1.2.0`, `1.3.0` | — | No | `1.3.0` |
 
-A TD with one type link and `version.model: "1.2.0"` has the same result as an explicit floor of `1.2.0`. A TD with two type links and a missing explicit floor fails attribution before candidate selection.
+A TD with one type link and `version.model: "1.2.0"` has the same result as an explicit floor of `1.2.0`. A TD with two type links, `version.model`, and a link without an explicit floor fails attribution before candidate selection. Without `version.model`, the same TD resolves each link without a floor.
 
 ## 7. Version-navigation links
 
@@ -176,7 +176,7 @@ If a resolver is given both an external minimum-version requirement and a projec
 
 ## 9. Registry implementations (informative)
 
-Registries such as the xRegistry WoT Registry and OPC UA WoT Connectivity implement version resolution and can expose candidates, authored versions, and consumer resolution records. This W3C proposal does not define their storage identifiers, generated revision labels, default-version policies, or information-model mappings. A conforming version-aware resolver does not depend on either registry: it uses the document's portable model identifier and authored `version.model` for comparison.
+The draft xRegistry WoT Registry and OPC UA WoT Connectivity specifications specify version resolution and how a registry exposes candidates, authored versions, and consumer resolution records. This W3C proposal does not define their storage identifiers, generated revision labels, default-version policies, or information-model mappings. A conforming version-aware resolver does not depend on either registry: it uses the document's portable model identifier and authored `version.model` for comparison.
 
 ## 10. Security considerations
 
