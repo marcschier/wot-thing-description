@@ -2,29 +2,29 @@
 
 > **Status:** Working draft for discussion. This document is a proposal, not a W3C specification.
 >
-> `tm:minVersion` and the processing rules below are provisional. Normative terms make the proposed contract concrete; they do not imply Working Group adoption.
+> `tm:minVersion` and the processing rules below are provisional. Normative terms state the proposed requirements; they do not imply Working Group adoption.
 
 ## Abstract
 
-This document defines minimum-version constraints for references to Thing Models (TMs). An optional `tm:minVersion` member expresses a floor on the target's `version.model`. A Thing Description (TD) with exactly one `type` link uses its own `version.model` as an implicit floor for that link. A resolver selects the highest eligible version under the target's identifier, or reports failure. Breaking changes use a new identifier. Exact resolution pins belong to the consumer or resolver output rather than the authored versioned reference.
+A reference to a Thing Model (TM) needs to identify the model and can state the minimum compatible version that supplies the required definitions. This document defines an optional `tm:minVersion` member as a floor on the target's `version.model`. A Thing Description (TD) with exactly one `type` link uses its own `version.model` as an implicit floor for that link. The resolver selects the highest eligible version under the target's identifier or reports failure; a breaking change requires a new identifier. The consumer or resolver retains exact resolution pins outside the authored versioned reference.
 
 ## 1. Scope and conformance
 
 The key words MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT, SHOULD, SHOULD NOT, RECOMMENDED, NOT RECOMMENDED, MAY, and OPTIONAL in this document are to be interpreted as described in [BCP 14](https://www.rfc-editor.org/info/bcp14), comprising RFC 2119 and RFC 8174, when, and only when, they appear in all capitals.
 
-The proposed requirements apply to authors using versioned TM references and to version-aware resolvers. They do not establish requirements for ordinary processors that do not implement this proposal. A processor claiming version-resolution support MUST either satisfy every applicable floor or report an error; it MUST NOT report unconstrained retrieval as successful version resolution.
+The proposed requirements apply to authors of versioned TM references and to version-aware resolvers. Ordinary processors that do not implement this proposal are outside its conformance scope. A processor claiming version-resolution support MUST either satisfy every applicable floor or report an error; it MUST NOT report unconstrained retrieval as successful version resolution.
 
 The proposal covers `tm:extends`, `tm:submodel`, ordinary `tm:ref`, and TD links whose `rel` is `type`. It does not define TD-to-TD version compatibility, registry storage, resource discovery, or a new TD/TM media type. Existing inheritance, composition, JSON Pointer, and target-kind requirements apply after target-version selection.
 
 ## 2. Terminology
 
-**Target identifier:** The stable `id` of the referenced TM. It identifies a compatibility line, not one immutable representation.
+**Target identifier:** The stable `id` of the referenced TM. Versions under this identifier form a compatibility line; the identifier does not select one immutable representation.
 
 **Candidate:** An available version of that TM, identified by its authored `version.model` and original document bytes.
 
 **Floor:** The minimum target-model version required by a reference. Comparison uses SemVer precedence, not lexical order or publication time.
 
-**Resolution record:** Consumer- or resolver-owned output identifying the target, selected version, content digest, and resolver origin. The record can be retained as an exact pin outside the WoT document.
+**Resolution record:** Output owned by the consumer or resolver that identifies the target, selected version, content digest, and resolver origin. Retaining the record outside the WoT document allows the consumer to pin a subsequent resolution to the same version and bytes.
 
 A version-aware resolver MAY use a registry, a local model catalog, or another source of candidates. How it discovers candidates or maps a retrieval URI to a target identifier is outside this proposal. It MUST establish the target identity and MUST NOT combine candidates with different `id` values.
 
@@ -39,7 +39,7 @@ The proposed term `tm:minVersion` uses the Thing Model namespace `https://www.w3
 | Object containing ordinary `tm:ref` | 0..1 | Floor for the TM containing the referenced definition |
 | TD link with `rel: "type"` | 0..1 | Explicit floor for that model link; required when several type links occur and the TD has `version.model` |
 
-`tm:minVersion` MUST occur on the link object, or as a sibling of the `tm:ref` member in the same object. The value of `tm:ref` is still a URI-reference string, not a new wrapper object. A floor is reference-control metadata; it MUST NOT be copied into the imported definition as an affordance annotation. This proposal does not assign meaning to `tm:minVersion` in other locations or on other link relations.
+`tm:minVersion` MUST occur on the link object, or as a sibling of the `tm:ref` member in the same object. The value of `tm:ref` is a URI-reference string, not a wrapper object. The floor controls reference resolution; it MUST NOT be copied into the imported definition as an affordance annotation. This proposal does not assign meaning to `tm:minVersion` in other locations or on other link relations.
 
 The examples extend the TD 1.1 context with an explicit prefix and string mapping:
 
@@ -61,7 +61,7 @@ The examples extend the TD 1.1 context with an explicit prefix and string mappin
 }
 ```
 
-Declaring this context does not standardize the term or enable resolution. Adoption requires vocabulary, context, validation, and processing updates. Compact link relation spellings such as `tm:extends` are interpreted according to the TM link-relation rules; a JSON-LD prefix declaration alone is not a general rule for expanding arbitrary `rel` strings. `type`, `successor-version`, and `latest-version` are link relation names, not proposed TM terms.
+The context declares the term's mapping; it does not standardize the term or implement resolution. Adoption requires changes to the vocabulary, contexts, validation schemas, and processor behavior. Compact link relation spellings such as `tm:extends` follow the TM link-relation rules. A JSON-LD prefix declaration alone does not define how to expand arbitrary `rel` strings. `type`, `successor-version`, and `latest-version` are link relation names, not proposed TM terms.
 
 ## 4. Model identity and compatibility
 
@@ -71,7 +71,7 @@ An authored SemVer major-version change MUST use a new `id`. Minor and patch cha
 
 Candidates used for the version-resolution algorithm MUST have an authored `version.model` satisfying the syntax in Section 3. A TM without such a version cannot establish that it satisfies a floor and MUST NOT be assigned an inferred version for comparison. Registry-generated version labels are not authored model versions and MUST NOT be used as floors. These restrictions concern version resolution, not whether the document can be processed as an ordinary unversioned TM.
 
-The resolver compares the target's `version.model`, not its own internal revision label, the referencing TM's version, or a TD's `version.instance`. A version number asserts compatibility; it does not prove compatibility or authenticate the document. Authors SHOULD validate compatibility before publication.
+The resolver uses the target's `version.model` for comparison. Its own internal revision label, the referencing TM's version, and a TD's `version.instance` do not supply the target model version. A version number is an author's compatibility claim, not evidence of compatibility or document authenticity. Authors SHOULD validate compatibility before publication.
 
 ## 5. Determining the floor
 
@@ -89,15 +89,15 @@ When a TD contains exactly one link with `rel: "type"` and has `version.model`, 
 
 The link MAY also carry `tm:minVersion`. If both an explicit and an implicit floor apply, both MUST be satisfied: the effective floor is the greater value by SemVer precedence. An explicit lower value MUST NOT weaken the TD's implicit floor. Prerelease eligibility is determined from that effective floor.
 
-If `version.model` is absent, the link's explicit floor, if any, applies. The model link MUST target a TM for this algorithm; a non-TM target is an error, not an unconstrained model match.
+If `version.model` is absent, the link's explicit floor applies when present. The model link MUST target a TM for this algorithm; a non-TM target causes an error rather than an unconstrained model match.
 
 ### 5.3 Several TD type links
 
 When a TD contains several links with `rel: "type"` and has `version.model`, each link MUST carry its own `tm:minVersion`. If any link lacks that member, unpinned resolution MUST fail as `ambiguous-floor`, including when resolving a different, fully specified link. When every link has an explicit floor, the effective floor for each link MUST be the greater of its own `tm:minVersion` and the TD's `version.model` by SemVer precedence. The resolver MUST validate both values and determine prerelease eligibility from the effective floor. It MUST NOT use `version.model` in place of a missing per-link floor.
 
-When the TD has no `version.model`, there is no implicit floor. Each type link MUST use its own `tm:minVersion` if present, and otherwise has no floor. A missing floor in this case MUST NOT produce `ambiguous-floor`; legacy TDs with several unversioned type links remain resolvable. Each link is resolved independently against its own target TM.
+A TD without `version.model` has no implicit floor. Each type link MUST use its own `tm:minVersion` if present, and otherwise has no floor. A missing floor in this case MUST NOT produce `ambiguous-floor`; TDs with several unversioned type links can be resolved without adding floors. Each link is resolved independently against its own target TM.
 
-A TD with no `type` links provides no link to which an implicit floor can be attributed. This proposal does not infer a target from `version.model` alone and does not change ordinary TD validation for that case.
+If a TD has no `type` links, the resolver has no link to which it can attribute an implicit floor. This proposal does not infer a target from `version.model` alone or change ordinary TD validation for that case.
 
 ## 6. Resolution semantics
 
@@ -114,17 +114,17 @@ For each reference requiring version resolution, a resolver MUST:
 
 A release has higher precedence than prereleases of the same major, minor, and patch values. Numeric prerelease identifiers are compared numerically under SemVer; for example, `1.3.0-rc.10` has higher precedence than `1.3.0-rc.2`. A prerelease such as `1.2.0-rc.1` is below a release floor of `1.2.0`, even when the consumer opts in.
 
-If no candidate satisfies eligibility and the floor, resolution MUST fail. A resolver MUST NOT downgrade below the floor, strip an invalid floor, substitute a different model identifier, or return a success-shaped partial composition. If several candidates claim the same identifier and version with different bytes, the resolver MUST report an inconsistent publication rather than arbitrarily choose between them.
+If no eligible candidate satisfies the floor, resolution MUST fail. A resolver MUST NOT downgrade below the floor, discard an invalid floor, substitute a different model identifier, or report a partial composition as successful. If candidates with different bytes claim the same identifier and version, the resolver MUST report an inconsistent publication rather than choose one.
 
-An explicit resolution pin, such as a version identifier or a digest from a prior resolution record, is caller state for reproducible replay. It selects that exact candidate before the unpinned floor, prerelease, and highest-version rules. The resolver MUST still verify the target identity, candidate version syntax, and exact bytes when a digest is supplied. A missing pinned candidate or digest mismatch MUST fail without an unpinned fallback. A pin does not change the authored reference or its floor; the floor governs unpinned resolution.
+An explicit resolution pin, such as a version identifier or a digest from a prior resolution record, lets the caller repeat a resolution against the selected candidate. The pin selects that candidate before the unpinned floor, prerelease, and highest-version rules apply. The resolver MUST verify the target identity, candidate version syntax, and exact bytes when a digest is supplied. A missing pinned candidate or digest mismatch MUST fail without an unpinned fallback. The authored reference and its floor do not change; the floor governs unpinned resolution.
 
 ### 6.2 Resolution records and reproducibility
 
 A successful resolution SHOULD return a record containing the target identifier, selected `version.model`, a cryptographic digest of the selected document's exact bytes, and the resolver origin. A consumer requiring reproducibility MUST retain both the version and digest. The digest algorithm and digest MUST be identified; SHA-256 is RECOMMENDED. The resolver MUST NOT canonicalize or transform the bytes before calculating an exact-bytes digest.
 
-A consumer MAY supply that record on a subsequent resolution. The resolver MUST retrieve the pinned version and verify its target identity, version syntax, and exact-byte digest. A missing pinned version or mismatching digest MUST fail; it MUST NOT trigger an unpinned fallback. This replay uses the caller's prior selection rather than rerunning floor or prerelease candidate selection. A consumer wishing to move to the highest eligible version performs a new unpinned resolution and retains a new record.
+A consumer MAY supply that record on a subsequent resolution. The resolver MUST retrieve the pinned version and verify its target identity, version syntax, and exact-byte digest. A missing pinned version or mismatching digest MUST fail; it MUST NOT trigger an unpinned fallback. The record repeats the caller's selection without rerunning floor or prerelease candidate selection. To select the highest eligible version, the consumer performs a new unpinned resolution and retains a new record.
 
-The resolver's selected version and digest MUST NOT be written into the authored WoT document as a pin for these references. In particular, a resolver MUST NOT replace the floor with the selected version or rewrite the target to a registry-specific revision identifier. Authored documents remain portable across catalogs and registries.
+The resolver's selected version and digest MUST NOT be written into the authored WoT document as a pin for these references. A resolver MUST NOT replace the floor with the selected version or rewrite the target to a registry-specific revision identifier. Keeping the authored requirement separate from the resolution result allows the document to be used across catalogs and registries.
 
 This separation does not prohibit the distinct, explicitly authored `wotproj:sourceDigest` mechanism in the projection proposal; its interaction is specified in Section 8.2. An exact source-bytes pin does not automatically pin the source's transitive dependencies. Reproducible dependency resolution requires retaining a resolution record for every version-resolved dependency.
 
@@ -148,9 +148,9 @@ A TD with one type link and `version.model: "1.2.0"` has the same result as an e
 
 ## 7. Version-navigation links
 
-A TD or TM MAY include links with `rel: "successor-version"` or `rel: "latest-version"` using the registered relations defined in [RFC 5829](https://www.rfc-editor.org/rfc/rfc5829.html). TD 1.1 also supports `predecessor-version`. These relations provide navigation, not version constraints or an alternative candidate-selection algorithm.
+A TD or TM MAY include links with `rel: "successor-version"` or `rel: "latest-version"` using the registered relations defined in [RFC 5829](https://www.rfc-editor.org/rfc/rfc5829.html). TD 1.1 also supports `predecessor-version`. A consumer can follow these relations to navigate a version history; they do not constrain versions or determine candidate selection.
 
-A deprecated TM's successor link MAY identify its replacement under a new major-version identifier. A latest-version link MAY provide a locator for the latest version in the corresponding version history. Following such a link does not establish that the target is compatible, has the original identifier, or satisfies a floor. A resolver MUST NOT use navigation links to redirect an existing reference across compatibility lines or to override the selection rules in Section 6.
+A deprecated TM's successor link MAY identify its replacement under a new major-version identifier. A latest-version link MAY locate the latest version in the corresponding version history. Neither link establishes that its target is compatible, has the original identifier, or satisfies a floor. A resolver MUST NOT use navigation links to redirect an existing reference across compatibility lines or to override the selection rules in Section 6.
 
 Deprecation does not itself make compatible versions ineligible. The [deprecated v1 example](./examples/tm-deprecated-v1.jsonld) states deprecation in its description and links to v2; this proposal introduces no new deprecation member or automatic migration rule.
 
@@ -170,13 +170,13 @@ This proposal does not extend the projection source-manifest grammar with `tm:mi
 
 An ordinary `tm:ref` that is not a projection selector can carry `tm:minVersion` as specified in Section 5.1. Ordinary TM references inside a retrieved source likewise retain their floors during dependency resolution. A source's TD type-link floors are evaluated against that source's own root metadata, not against the projection envelope's `version.model`.
 
-A source digest pins the retrieved source representation, including an unresolved nested plan when that is the source. It does not pin the nested plan's resolved result or the bytes of any transitive source or dependency. The consumer MUST separately retain dependency resolution records or use the projection proposal's source pins at the relevant dependency boundaries when reproducibility is required.
+A source digest pins the representation retrieved from that source. If the source is an unresolved nested plan, the digest pins that plan, not its resolved result or the bytes of transitive sources or dependencies. The consumer MUST separately retain dependency resolution records or use the projection proposal's source pins at the relevant dependency boundaries when reproducibility is required.
 
-If a resolver is given both an external minimum-version requirement and a projection source pin for the same TM source, both MUST be satisfied. It MUST locate and verify the exact pinned representation and check that representation's authored `version.model` against the floor and prerelease policy. A pinned version below the floor fails; a newer version with different bytes also fails the pin. No fallback to another source version is permitted. This describes processing of combined constraints, not a new manifest member.
+If a resolver is given both an external minimum-version requirement and a projection source pin for the same TM source, both MUST be satisfied. It MUST locate and verify the exact pinned representation and check that representation's authored `version.model` against the floor and prerelease policy. A pinned version below the floor fails; a newer version with different bytes fails the pin. No fallback to another source version is permitted. These constraints do not introduce a manifest member.
 
 ## 9. Registry implementations (informative)
 
-Registries such as the xRegistry WoT Registry and OPC UA WoT Connectivity implement version resolution and can expose candidates, authored versions, and consumer resolution records. Their storage identifiers, generated revision labels, default-version policies, and information-model mappings are not part of this W3C proposal. A conforming version-aware resolver does not require either registry. The document's portable model identifier and authored `version.model` remain the comparison inputs.
+Registries such as the xRegistry WoT Registry and OPC UA WoT Connectivity implement version resolution and can expose candidates, authored versions, and consumer resolution records. This W3C proposal does not define their storage identifiers, generated revision labels, default-version policies, or information-model mappings. A conforming version-aware resolver does not depend on either registry: it uses the document's portable model identifier and authored `version.model` for comparison.
 
 ## 10. Security considerations
 
@@ -188,4 +188,4 @@ Resolvers SHOULD enforce safe-fetching policies covering URI schemes, destinatio
 
 The [example guide](./examples/README.md) lists complete illustrative JSON-LD documents for extension, submodels, definition reuse, single- and multiple-model TDs, and major-version navigation. Example target IRIs identify externally supplied models; the examples are not a candidate repository or an executable resolution service.
 
-Normative integration requires adding the proposed term to the TM vocabulary and supported JSON-LD contexts, updating link and reference validation schemas, documenting processor capabilities, and testing version selection across independent implementations. This proposal does not modify the base TD/TM context or schemas in this repository. Discussion includes capability signaling for processors that ignore extension terms, safe candidate discovery, and the evidence required to verify backward compatibility claims.
+Integrating these requirements into the specification requires adding the proposed term to the TM vocabulary and supported JSON-LD contexts, updating link and reference validation schemas, documenting processor capabilities, and testing version selection across independent implementations. This proposal does not modify the base TD/TM context or schemas in this repository. Open issues are how to signal support when processors can ignore extension terms, how to discover candidates safely, and what evidence is needed to verify backward compatibility claims.
