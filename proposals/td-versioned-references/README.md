@@ -17,7 +17,7 @@ A TM reference identifies its target without stating which compatible revision s
 
 - Define optional `tm:minVersion` on `tm:extends` and `tm:submodel` links, ordinary `tm:ref` objects, and TD `type` links.
 - Use the TD's `version.model` as an implicit floor when exactly one `type` link identifies its model.
-- Require explicit per-link floors when several `type` links identify models.
+- Require explicit per-link floors when several `type` links identify models and the TD has `version.model`; without that member, per-link floors are optional.
 - Select the highest eligible SemVer version and fail if the floor cannot be satisfied.
 - Separate portable author requirements from consumer-owned resolution pins.
 - Define optional version-navigation links without using them for resolution.
@@ -33,7 +33,7 @@ A TM reference identifies its target without stating which compatible revision s
 
 `tm:minVersion` is a SemVer 2.0.0 string without build metadata. It constrains the target TM's `version.model`, not the referencing document's version or a registry's revision label. It is a floor, not an exact version or a range.
 
-A TD with exactly one `type` link uses its `version.model` as that link's floor. A TD with several `type` links supplies `tm:minVersion` on each. Missing attribution is an error, not permission to ignore `version.model`.
+A TD with exactly one `type` link uses the greater of its explicit `tm:minVersion` and implicit `version.model` by SemVer precedence, or the only floor present. With several type links and `version.model`, each link requires `tm:minVersion` and uses the greater of those two values; a missing per-link floor is `ambiguous-floor`. Without `version.model`, each type link uses only its own explicit floor if present, and otherwise has no floor without error.
 
 Prereleases are ineligible unless the floor is a prerelease or the consumer opts in. Resolution fails rather than downgrading. The selected identifier, version, content digest, and resolver origin can be retained by the consumer outside the WoT document.
 

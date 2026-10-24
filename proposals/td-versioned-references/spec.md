@@ -37,7 +37,7 @@ The proposed term `tm:minVersion` uses the Thing Model namespace `https://www.w3
 | TM link with `rel: "tm:extends"` | 0..1 | Floor for the parent TM |
 | TM link with `rel: "tm:submodel"` | 0..1 | Floor for the child TM |
 | Object containing ordinary `tm:ref` | 0..1 | Floor for the TM containing the referenced definition |
-| TD link with `rel: "type"` | 0..1 | Explicit floor for that model link; required when several type links occur |
+| TD link with `rel: "type"` | 0..1 | Explicit floor for that model link; required when several type links occur and the TD has `version.model` |
 
 `tm:minVersion` MUST occur on the link object, or as a sibling of the `tm:ref` member in the same object. The value of `tm:ref` is still a URI-reference string, not a new wrapper object. A floor is reference-control metadata; it MUST NOT be copied into the imported definition as an affordance annotation. This proposal does not assign meaning to `tm:minVersion` in other locations or on other link relations.
 
@@ -93,9 +93,9 @@ If `version.model` is absent, the link's explicit floor, if any, applies. The mo
 
 ### 5.3 Several TD type links
 
-When a TD contains several links with `rel: "type"`, each link MUST carry its own `tm:minVersion`. The TD's `version.model`, if present, MUST NOT be guessed to describe one link, broadcast to all links, or silently used in place of a missing per-link floor. Each link is resolved independently against its own target TM.
+When a TD contains several links with `rel: "type"` and has `version.model`, each link MUST carry its own `tm:minVersion`. If any link lacks that member, unpinned resolution MUST fail as `ambiguous-floor`, including when resolving a different, fully specified link. When every link has an explicit floor, the effective floor for each link MUST be the greater of its own `tm:minVersion` and the TD's `version.model` by SemVer precedence. The resolver MUST validate both values and determine prerelease eligibility from the effective floor. It MUST NOT use `version.model` in place of a missing per-link floor.
 
-A TD with `version.model` and several type links, any of which lacks `tm:minVersion`, is invalid for version resolution. The per-link requirement also applies when such a TD omits `version.model`. A resolver MUST report the missing attribution before returning a successful result; it MUST NOT drop the floor and continue.
+When the TD has no `version.model`, there is no implicit floor. Each type link MUST use its own `tm:minVersion` if present, and otherwise has no floor. A missing floor in this case MUST NOT produce `ambiguous-floor`; legacy TDs with several unversioned type links remain resolvable. Each link is resolved independently against its own target TM.
 
 A TD with no `type` links provides no link to which an implicit floor can be attributed. This proposal does not infer a target from `version.model` alone and does not change ordinary TD validation for that case.
 
