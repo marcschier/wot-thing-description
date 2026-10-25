@@ -26,8 +26,10 @@ from its sources.
 
 A projection plan is a TD or TM envelope marked to indicate that it is not yet an ordinary,
 usable TD or TM. It describes selections by reference, optionally contributes annotations or
-local affordance definitions, and can be resolved by a projection-aware processor. Resolution
-produces a complete TD or TM that can be processed by existing WoT implementations.
+local affordance definitions, and can be resolved by a projection-aware
+processor. Its source manifest can select source revisions by target kind: TM
+floors are uncapped, while TD floors select within a major version. Resolution
+produces a complete TD or TM that existing WoT implementations can process.
 
 A projection plan is distinct from TM inheritance and reuse mechanisms such as `tm:extends`,
 `tm:submodel`, and ordinary `tm:ref`. It selects definitions across source documents to
@@ -59,8 +61,10 @@ Explicit projection selectors use the proposed `td:ref` for TD envelopes and the
 for the envelope kind. The term is chosen by the envelope kind, not the source kind.
 `td:` denotes `https://www.w3.org/2019/wot/td#`; defining the proposed `td:ref` requires
 vocabulary, context, validation, and processing changes, not merely declaring a prefix.
-Cross-kind selections remain specific to marked projection plans; they do not extend
-ordinary TD-to-TD or TM-to-TM composition to cross-kind targets.
+Source floors use `tm:minVersion` for TM sources and `td:minVersion` for TD sources,
+independently of the selector term. Cross-kind selections remain specific to marked
+projection plans; they do not extend ordinary TD-to-TD or TM-to-TM composition to
+cross-kind targets.
 
 ## 2. Terminology
 
@@ -111,6 +115,18 @@ The example vocabulary and syntax below are provisional:
         "@id": "https://www.w3.org/2019/wot/td#",
         "@prefix": true
       },
+      "tm": {
+        "@id": "https://www.w3.org/2019/wot/tm#",
+        "@prefix": true
+      },
+      "tm:minVersion": {
+        "@id": "https://www.w3.org/2019/wot/tm#minVersion",
+        "@type": "http://www.w3.org/2001/XMLSchema#string"
+      },
+      "td:minVersion": {
+        "@id": "https://www.w3.org/2019/wot/td#minVersion",
+        "@type": "http://www.w3.org/2001/XMLSchema#string"
+      },
       "wotproj": "https://example.org/wot/projection#"
     }
   ],
@@ -123,6 +139,7 @@ The example vocabulary and syntax below are provisional:
       "wotproj:sourceName": "pump",
       "href": "./pump.td.json",
       "type": "application/td+json",
+      "td:minVersion": "1.2.0",
       "wotproj:routing": "source",
       "wotproj:select": [
         { "wotproj:affordanceKind": "property" }
@@ -184,11 +201,27 @@ and prevents an undeclared document from being used as a projection source.
 A source entry MAY also contain:
 
 - `wotproj:routing`: `source` or `projection`; `source` is the default;
+- `tm:minVersion` or `td:minVersion`: an optional floor for a TM or TD source,
+  respectively;
 - `wotproj:sourceDigest`: an optional digest pin in the form
   `sha-256:<64 lowercase hexadecimal digits>`;
 - `wotproj:namePrefix`: an optional prefix applied to affordance names selected in bulk;
 - `wotproj:selectAll`: a boolean indicating selection of every affordance in the source; and
 - `wotproj:select`: an array of bounded selection predicates.
+
+A source entry's `type` determines its target kind. A TM source MAY carry only
+`tm:minVersion`; a TD source MAY carry only `td:minVersion`. A source entry
+with both floor terms, or with a floor for the other target kind, MUST fail as
+`invalid-floor`. The floor MUST use the syntax in the [versioned-reference
+proposal][Versioned-reference proposal] and MUST NOT use a generated
+`0.0.0-N` id. A TM floor has no upper bound. A TD floor is a caret bound:
+`X.Y.Z` selects versions from `X.Y.Z` up to but not including `(X+1).0.0`,
+including when X is zero. An unfloored source selects the highest eligible
+version for its kind, and an unfloored TD source can cross major versions.
+Prerelease eligibility follows Section 6.1. The processor MUST use the
+authored `version.model` for a TM source and `version.instance` for a TD
+source. The projection envelope's own `version.model` or `version.instance`
+MUST NOT supply a source floor.
 
 A source MAY itself be a projection plan. It is resolved before its affordances are selected.
 The graph of projection plans MUST be acyclic.
@@ -198,7 +231,9 @@ source bytes as retrieved and compare it to the declared value. The hexadecimal 
 be lowercase. The processor MUST NOT canonicalize or otherwise transform the bytes before
 hashing. A mismatch MUST fail resolution and identify the source. If the source is provided
 only as an already-parsed object and its original bytes are unavailable, the processor MUST
-report the pin as unverified and MUST NOT treat it as satisfied.
+report the pin as unverified and MUST NOT treat it as satisfied. When a source digest and
+floor are both present, the exact pinned source MUST also satisfy that floor and its
+prerelease rules; a mismatch MUST fail without fallback.
 
 ## 5. Selection
 
@@ -303,7 +338,8 @@ resolution fails during final validation.
 Resolution MUST:
 
 1. Validate the marked envelope and projection grammar.
-2. Resolve and validate every source and verify any declared source digest.
+2. Resolve and validate every source, apply its target-kind floor, and verify any declared
+   source digest.
 3. Recursively resolve source projection plans while detecting cycles.
 4. Identify explicit, bulk, and predicate selections.
 5. Apply deterministic imported-selection precedence and local-definition precedence.
@@ -410,8 +446,9 @@ document.
 
 ## 9. Source changes and security considerations
 
-A projection may change its resolved result when a source changes. A source digest can pin a
-selection to exact source bytes, as described in Section 4. This proposal does not define
+A projection may change its resolved result when a source changes. A source digest pins a
+selection to exact source bytes, and a source floor constrains its target
+version, as described in Section 4. This proposal does not define
 notifications or continuous synchronization.
 
 Projection-aware processors may retrieve multiple documents using author-supplied URIs.
@@ -447,3 +484,5 @@ unchanged.
    semantics.
 5. Define safe-fetching requirements and limits for recursive plan resolution.
 6. Determine what implementation and interoperability evidence is needed before adoption.
+
+[Versioned-reference proposal]: ../td-versioned-references/spec.md#3-vocabulary-and-json-ld-context

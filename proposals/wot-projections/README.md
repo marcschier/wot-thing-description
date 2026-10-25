@@ -71,9 +71,10 @@ it is not itself an executable affordance definition.
 ### Sources and selection
 
 An ordered source manifest gives each source a unique local name, URI, and expected TD/TM
-media type. A source entry may also state how interactions are routed, pin the source bytes,
-select all affordances, apply a name prefix to bulk selections, or provide a bounded
-predicate.
+media type. A source entry can set a target-kind-specific version floor
+(`td:minVersion` for TDs, `tm:minVersion` for TMs), state how interactions
+are routed, pin the source bytes, select all affordances, apply a name prefix
+to bulk selections, or provide a bounded predicate.
 
 Explicit selectors use the proposed `td:ref` in TD envelopes and `tm:ref` in TM envelopes.
 The term follows the envelope kind, not the source kind. The

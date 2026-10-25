@@ -40,8 +40,10 @@ The proposed term `tm:minVersion` uses the Thing Model namespace `https://www.w3
 | TD link with `rel: "type"` | 0..1 | Explicit TM floor; required when several type links occur and the TD has `version.model` |
 | TD link with `rel: "td:extends"` or `rel: "td:subthing"` | 0..1 | Floor for the target TD |
 | Object containing ordinary `td:ref` | 0..1 | Floor for the target TD containing the referenced definition |
+| Projection source-manifest entry with a TM target | 0..1 | Floor for the source TM |
+| Projection source-manifest entry with a TD target | 0..1 | Floor for the source TD |
 
-`tm:minVersion` MUST occur on a TM link object, or as a sibling of `tm:ref` in the same object. `td:minVersion` MUST occur on a `td:extends` or `td:subthing` link object, or as a sibling of `td:ref` in the same object. The value of either `tm:ref` or `td:ref` is a URI-reference string, not a wrapper object. A floor controls target selection and MUST NOT be copied into an imported definition. A floor term used with the other target kind, or outside these locations, MUST fail as `invalid-floor`.
+`tm:minVersion` MUST occur on a TM link object, as a sibling of `tm:ref` in the same object, or on a Projection Plans source-manifest entry whose expected media type identifies a TM. `td:minVersion` MUST occur on a `td:extends` or `td:subthing` link object, as a sibling of `td:ref` in the same object, or on a source-manifest entry whose expected media type identifies a TD. The value of either `tm:ref` or `td:ref` is a URI-reference string, not a wrapper object. A floor controls target selection and MUST NOT be copied into an imported definition. A floor term used with the other target kind, or outside these locations, MUST fail as `invalid-floor`.
 
 The examples extend the TD 1.1 context with an explicit prefix and string mapping:
 
@@ -188,13 +190,15 @@ Ordinary TM composition uses `tm:extends`, `tm:submodel`, and `tm:ref` with vers
 
 [WoT Projection Plans](../wot-projections/spec.md) defines `wotproj:sourceDigest` on a source-manifest entry as an exact-byte SHA-256 pin. The projection processor MUST verify that digest against the source bytes as retrieved, before transforming the source or resolving a nested projection plan. A mismatching or unverified digest MUST fail projection resolution; a higher model version or a satisfied floor cannot substitute for the pinned bytes.
 
-This proposal does not extend the projection source-manifest grammar with `tm:minVersion`. Source acquisition and source-name matching follow the projection proposal. Projection selectors that use `tm:ref` in a TM envelope retain their projection-specific meaning; they do not acquire ordinary `tm:ref` floor semantics merely by sharing that member name. The projection proposal's closed selector-annotation set does not admit `tm:minVersion`. Authors MUST NOT use a selector-local floor to select a different version of a manifest source.
+A projection source-manifest entry MAY carry `tm:minVersion` for a TM source or `td:minVersion` for a TD source, as specified in the [WoT Projection Plans proposal](../wot-projections/spec.md#4-source-manifest). The entry's expected media type determines its target kind. The floor uses the same target-kind rules as an ordinary reference: a TM floor has no upper bound, and a TD floor is capped at the next major. Prerelease eligibility follows Section 6.1. Without a floor, a TD source can resolve across major versions. The projection envelope's `version.model` and `version.instance` do not supply an implicit source floor.
+
+These terms apply to manifest-source resolution, not to selector annotations. Projection selectors that use `tm:ref` in a TM envelope retain their projection-specific meaning; they do not acquire ordinary `tm:ref` floor semantics merely by sharing that member name. The projection proposal's closed selector-annotation set does not admit either floor term. Authors MUST NOT use a selector-local floor to select a different version of a manifest source.
 
 An ordinary `tm:ref` that is not a projection selector can carry `tm:minVersion` as specified in Section 5.1. Ordinary TM references inside a retrieved source likewise retain their floors during dependency resolution. A source's TD type-link floors are evaluated against that source's own root metadata, not against the projection envelope's `version.model`.
 
 A source digest pins the representation retrieved from that source. If the source is an unresolved nested plan, the digest pins that plan, not its resolved result or the bytes of transitive sources or dependencies. The consumer MUST separately retain dependency resolution records or use the projection proposal's source pins at the relevant dependency boundaries when reproducibility is required.
 
-If a resolver is given both an external minimum-version requirement and a projection source pin for the same TM source, both MUST be satisfied. It MUST locate and verify the exact pinned representation and check that representation's authored `version.model` against the floor and prerelease policy. A pinned version below the floor fails; a newer version with different bytes fails the pin. No fallback to another source version is permitted. These constraints do not introduce a manifest member.
+If a resolver is given both a projection source floor and `wotproj:sourceDigest` for the same source, both MUST be satisfied. It MUST verify the exact pinned representation and check its authored version against the floor: `version.model` for a TM or `version.instance` for a TD, with the TD caret cap and prerelease rules. A pinned version below the floor or outside the TD major range fails; different bytes fail the digest pin. No fallback to another source version is permitted.
 
 ## 9. Registry implementations (informative)
 
