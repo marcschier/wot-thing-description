@@ -16,6 +16,8 @@ The proposed requirements apply to authors of versioned TM and TD references, pu
 
 The proposal covers `tm:extends`, `tm:submodel`, ordinary `tm:ref`, and TD links whose `rel` is `type`, as well as TD-to-TD `td:extends`, `td:subthing`, and ordinary `td:ref`. It does not define floors for other TD links, registry storage, resource discovery, or a new TD/TM media type. Version selection chooses the target document; existing composition, inheritance, JSON Pointer, and target-kind rules continue to govern its use.
 
+This proposal leaves the TD 1.1 `Link` model and link serialization unchanged ([Sections 5.3.4.1](https://www.w3.org/TR/wot-thing-description11/#link) and [6.3.8](https://www.w3.org/TR/wot-thing-description11/#link-serialization-json)). The existing `VersionInfo` model and `version` serialization also remain unchanged ([Sections 5.3.1.6](https://www.w3.org/TR/wot-thing-description11/#versioninfo) and [6.3.3](https://www.w3.org/TR/wot-thing-description11/#version-serialization-json)). TM versioning, extension and import, and composition remain defined by [Sections 9.3.1](https://www.w3.org/TR/wot-thing-description11/#thing-model-versioning), [9.3.2](https://www.w3.org/TR/wot-thing-description11/#thing-model-extension-import), and [9.3.3](https://www.w3.org/TR/wot-thing-description11/#thing-model-composition). The separate [TD Composition and Reuse proposal](../td-composition/spec.md) defines the `td:extends`, `td:subthing`, and `td:ref` operators; this proposal defines version selection for their targets.
+
 ## 2. Terminology
 
 **Target identifier:** The stable `id` of the referenced TM or TD. A TM identifier names a compatibility line; a TD identifier names a concrete Thing and remains stable across its instance revisions.
@@ -119,6 +121,37 @@ A TD author MAY include `td:minVersion` on a `td:extends` or `td:subthing` link,
 
 A TD floor is a caret floor. For a floor `X.Y.Z`, the selected version MUST be greater than or equal to `X.Y.Z` and lower than `(X+1).0.0`; the major component is incremented for all values of X, including `0`. The cap excludes prereleases whose major is `X+1`. For example, `0.4.2` admits versions from `0.4.2` up to but not including `1.0.0`. A TD reference without a floor has no implicit lower or upper bound and MAY resolve across major versions. Neither the referencing TD's `version.instance` nor its `version.model` supplies a floor for a TD target. Prerelease eligibility follows Section 6.1.
 
+Assuming the context from Section 3, the following abbreviated JSON excerpts use `...` for unrelated members and are not standalone TD documents. A TD with one type link and `version.model: "2.3.0"` can also state a lower explicit floor; the effective floor remains `2.3.0`:
+
+```json
+{
+  "version": { "model": "2.3.0" },
+  "links": [
+    {
+      "rel": "type",
+      "href": "https://example.net/models/pump.tm.jsonld",
+      "tm:minVersion": "2.1.0"
+    }
+  ],
+  ...
+}
+```
+
+A TD composition link can constrain its target to the `1.x` major line:
+
+```json
+{
+  "links": [
+    {
+      "rel": "td:extends",
+      "href": "https://example.net/things/pump-base",
+      "td:minVersion": "1.4.2"
+    }
+  ],
+  ...
+}
+```
+
 ## 6. Resolution semantics
 
 ### 6.1 Selection
@@ -182,7 +215,7 @@ Deprecation does not itself make compatible versions ineligible. The [deprecated
 
 ### 8.1 TD Composition and Reuse
 
-[TD Composition and Reuse](../td-composition/spec.md) defines the target TD for `td:extends`, `td:subthing`, and `td:ref` by the version-selection rules in Sections 5.4 and 6.1. These operators use `td:minVersion`, not `tm:minVersion`; their target TD major is bounded by a floor, while an unfloored reference can cross majors. The target's `version.instance` identifies its revision, and the referencing TD's version members do not supply an implicit floor. Version selection chooses the target document and does not change the operator's composition semantics.
+[TD Composition and Reuse](../td-composition/spec.md) Sections 5–7 define `td:extends`, `td:subthing`, and `td:ref` and their composition behavior. This proposal defines target-version selection for those operators in Sections 5.4 and 6.1. They use `td:minVersion`, not `tm:minVersion`; a floored target is bounded to its major line, while an unfloored reference can cross majors. The target's `version.instance` identifies its revision, and the referencing TD's version members do not supply an implicit floor. Version selection does not change the operator's composition semantics.
 
 Ordinary TM composition uses `tm:extends`, `tm:submodel`, and `tm:ref` with version selection performed before the existing operator's processing. Version selection does not change inheritance, child-model semantics, overrides, context preservation, source ownership, security, or cycle handling. A version floor cannot make an otherwise invalid composition valid. When a composed TD includes type links to TMs, the type-link rules apply to those model references independently of TD-to-TD composition.
 
