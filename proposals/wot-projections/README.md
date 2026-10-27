@@ -71,8 +71,12 @@ it is not itself an executable affordance definition.
 ### Sources and selection
 
 An ordered source manifest gives each source a unique local name, URI, and expected TD/TM
-media type. A source entry can set a target-kind-specific version floor
-(`td:minVersion` for TDs, `tm:minVersion` for TMs), state how interactions
+media type. A source entry can set a SemVer floor
+(`td:minVersion` for TDs, `tm:minVersion` for TMs), or select an incremental
+compatibility line with an optional numeric floor under the
+[versioned-reference contract](../td-versioned-references/spec.md).
+The provider declares the profile; the plan's own versions and root line
+do not supply source requirements. A source entry can also state how interactions
 are routed, pin the source bytes, select all affordances, apply a name prefix
 to bulk selections, or provide a bounded predicate.
 
@@ -120,7 +124,10 @@ cyclic, or contradictory security references fail resolution.
 
 A source may itself be a projection plan. It is resolved before its selected affordances are
 used; the projection dependency graph must be acyclic. Optional source digests can pin a
-source to exact retrieved bytes.
+source to exact retrieved bytes, but do not pin nested-plan results or transitive
+dependencies. A snapshot-bound source is selected by its exact occurrence binding
+and must still satisfy its authored requirement and digest. Missing or incompatible
+bound content fails without live fallback.
 
 ### Fit with WoT specifications
 

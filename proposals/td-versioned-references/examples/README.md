@@ -1,6 +1,6 @@
 # Versioned Reference Examples
 
-These JSON-LD documents illustrate version floors on TM references, TD type links, and TD-to-TD composition references, plus SemVer TD instance identity. They use the TD 1.1 context and explicitly declare the provisional `tm:minVersion` or `td:minVersion` string term in its owning namespace. Every file is parseable JSON, but resolving the references requires the vocabulary and processing changes described in the [draft](../spec.md).
+These JSON-LD documents illustrate SemVer floors and incremental compatibility requirements on existing WoT references. The SemVer examples explicitly declare provisional `tm:minVersion` or `td:minVersion` terms. The incremental examples use the informative `uav` deployment mapping, not proposed core WoT term names. All use the TD 1.1 context with local extension mappings. Parsing their JSON does not implement the [draft's resolution contract](../spec.md).
 
 | File | Contract |
 | --- | --- |
@@ -14,8 +14,10 @@ These JSON-LD documents illustrate version floors on TM references, TD type link
 | [td-subthing.jsonld](./td-subthing.jsonld) | Select a child TD at floor `0.8.0`; selection stays below `1.0.0`. |
 | [td-ref.jsonld](./td-ref.jsonld) | Select a TD definition source using sibling `td:minVersion`. |
 | [td-instance-v1.jsonld](./td-instance-v1.jsonld) and [td-instance-v2.jsonld](./td-instance-v2.jsonld) | Publish two SemVer instance revisions under one concrete Thing `id`. |
+| [td-incremental-extends.jsonld](./td-incremental-extends.jsonld) | Extend a TD in explicit line `control-a` at integer revision `42` or higher in one selected source sequence. |
+| [tm-incremental-ref.jsonld](./tm-incremental-ref.jsonld) | Select the newest definitions revision in line `status-a`, without a numeric floor; the containing model's free-form label and root line do not constrain the target. |
 
-Model identifiers and reference targets are illustrative HTTPS IRIs. The target models and their candidate versions are external to this folder, so parsing the JSON does not establish that the references can be resolved. The TD examples use illustrative endpoint forms and `nosec` security; these are not production security recommendations. The TM deprecation example states deprecation in descriptive metadata and does not introduce a vocabulary term.
+Model identifiers and reference targets are illustrative HTTPS and URN IRIs. The target models and their candidate versions are external to this folder, so parsing the JSON does not establish that the references can be resolved. The TD examples use illustrative endpoint forms and `nosec` security; these are not production security recommendations. The TM deprecation example states deprecation in descriptive metadata and does not introduce a vocabulary term.
 
 To check JSON syntax from the repository root:
 
@@ -25,4 +27,8 @@ python -c "import json; from pathlib import Path; files = sorted(Path('proposals
 
 The [multiple-type TD without a model version](./td-multiple-types-no-model-version.jsonld) has an explicit floor on one link and no floor on the other. Each link resolves independently. With no root model version, the absent per-link floor does not cause an error.
 
-TD-to-TD floors use `td:minVersion` on `td:extends` and `td:subthing` links, and beside `td:ref`. A floor caps selection at the next major; omitting it permits selection across majors. The TD instance examples use the same `id` for `version.instance` values `1.4.0` and `2.0.0`, because the identifier names the concrete Thing rather than a compatibility major.
+SemVer TD-to-TD floors use `td:minVersion` on `td:extends` and `td:subthing` links, and beside `td:ref`. A floor caps selection at the next major; omitting it permits selection across majors. The TD instance examples use the same `id` for `version.instance` values `1.4.0` and `2.0.0`, because the identifier names the concrete Thing rather than a compatibility major.
+
+The incremental examples require a provider-declared incremental candidate set and trusted revision/line metadata. Neither a version string nor these context declarations select that profile. Given target history 42/control-a, 43/control-b and 44/control-a with no sticky default, the TD reference selects 44/control-a. A sticky 43/control-b fails the line requirement instead of falling back. The TM example's root `monitor-a` line declares its own revision's compatibility; its dependency independently names `status-a`.
+
+These are authored documents, not registry uploads, complete publication snapshots or executable resolver fixtures. Snapshot-bound composition uses the exact occurrence binding and then validates the same requirements; it does not rerun live highest-revision selection. Section 9 of the draft defines publication closure without introducing another JSON manifest format here.

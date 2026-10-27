@@ -2,44 +2,54 @@
 
 > **Status:** Working draft for discussion. This document is a proposal, not a W3C specification.
 >
-> `tm:minVersion`, `td:minVersion`, and the processing rules below are provisional. Normative terms state the proposed requirements; they do not imply Working Group adoption.
+> `tm:minVersion`, `td:minVersion`, and the processing rules below are provisional. Core WoT term names for incremental requirements remain open. Normative terms state the proposed requirements; they do not imply Working Group adoption.
 
 ## Abstract
 
-A versioned reference to a Thing Model (TM) or Thing Description (TD) identifies its target and can state the minimum revision required. This document defines `tm:minVersion` for TM targets and `td:minVersion` for TD-to-TD composition targets. A TD uses SemVer `version.instance` as its revision identity; its `version.model` remains an implicit floor only for a `rel: "type"` TM link. A TD floor selects within the same major version; without a TD floor, selection can cross majors. The consumer or resolver retains exact resolution pins outside the authored reference.
+A versioned reference to a Thing Model (TM) or Thing Description (TD) separates the target's identity, revision order, compatibility requirement, and exact selection. This proposal retains SemVer floors and adds a distinct incremental contract: a reference selects a declared compatibility line and can require a minimum integer revision. The target's provider declares the profile; the resolver does not infer it from a version string. Publication snapshots bind dependencies exactly, but composition still checks compatibility. Consumer-owned pins and publication metadata stay outside authored references.
 
 ## 1. Scope and conformance
 
 The key words MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT, SHOULD, SHOULD NOT, RECOMMENDED, NOT RECOMMENDED, MAY, and OPTIONAL in this document are to be interpreted as described in [BCP 14](https://www.rfc-editor.org/info/bcp14), comprising RFC 2119 and RFC 8174, when, and only when, they appear in all capitals.
 
-The proposed requirements apply to authors of versioned TM and TD references, publishers that assign document versions, and version-aware resolvers. Ordinary processors that do not implement this proposal are outside its conformance scope. A processor claiming version-resolution support MUST either satisfy every applicable floor or report an error; it MUST NOT report unconstrained retrieval as successful version resolution.
+The proposed requirements apply to authors of versioned TM and TD references, publishers that assign document versions, and version-aware resolvers. Ordinary processors that do not implement this proposal are outside its conformance scope. A processor claiming constrained-resolution support MUST either satisfy every applicable profile-specific requirement or report an error; it MUST NOT report unconstrained retrieval as successful constrained resolution. Raw exact retrieval is a separate operation.
 
-The proposal covers `tm:extends`, `tm:submodel`, ordinary `tm:ref`, and TD links whose `rel` is `type`, as well as TD-to-TD `td:extends`, `td:subthing`, and ordinary `td:ref`. It does not define floors for other TD links, registry storage, resource discovery, or a new TD/TM media type. Version selection chooses the target document; existing composition, inheritance, JSON Pointer, and target-kind rules continue to govern its use.
+The proposal covers `tm:extends`, `tm:submodel`, ordinary `tm:ref`, and TD links whose `rel` is `type`, as well as TD-to-TD `td:extends`, `td:subthing`, and ordinary `td:ref`. Projection source-manifest entries use the same target-profile contract. It does not define requirements for other TD links, registry storage, a discovery protocol, a publication API or format, or a new TD/TM media type. Version selection chooses the target document; existing composition, inheritance, JSON Pointer, and target-kind rules continue to govern its use.
 
 This proposal leaves the TD 1.1 `Link` model and link serialization unchanged ([Sections 5.3.4.1](https://www.w3.org/TR/wot-thing-description11/#link) and [6.3.8](https://www.w3.org/TR/wot-thing-description11/#link-serialization-json)). The existing `VersionInfo` model and `version` serialization also remain unchanged ([Sections 5.3.1.6](https://www.w3.org/TR/wot-thing-description11/#versioninfo) and [6.3.3](https://www.w3.org/TR/wot-thing-description11/#version-serialization-json)). TM versioning, extension and import, and composition remain defined by [Sections 9.3.1](https://www.w3.org/TR/wot-thing-description11/#thing-model-versioning), [9.3.2](https://www.w3.org/TR/wot-thing-description11/#thing-model-extension-import), and [9.3.3](https://www.w3.org/TR/wot-thing-description11/#thing-model-composition). The separate [TD Composition and Reuse proposal](../td-composition/spec.md) defines the `td:extends`, `td:subthing`, and `td:ref` operators; this proposal defines version selection for their targets.
 
 ## 2. Terminology
 
-**Target identifier:** The stable `id` of the referenced TM or TD. A TM identifier names a compatibility line; a TD identifier names a concrete Thing and remains stable across its instance revisions.
+**Target identifier:** The stable `id` of the referenced TM or TD. In the SemVer profile, a TM identifier names a compatibility major. An incremental TM can retain its identifier across compatibility lines. A TD identifier names a concrete Thing.
 
-**Candidate:** An available version of the target document, identified by its authored `version.model` for a TM or `version.instance` for a TD, and its original document bytes.
+**Version profile:** The provider-declared rules for revision identity, ordering, and compatibility selection: `semver` or `incremental`.
 
-**Floor:** The minimum target version required by a reference. Comparison uses SemVer precedence, not lexical order or publication time. A TD floor also limits selection to the floor major.
+**Candidate:** An available revision of the target document, its exact bytes, and the trusted provider metadata needed to interpret its profile. SemVer resolution normally compares the authored `version.model` for a TM or `version.instance` for a TD; incremental resolution compares the provider's integer revision.
 
-**Resolution record:** Output owned by the consumer or resolver that identifies the target, selected version, content digest, and resolver origin. Retaining the record outside the WoT document allows the consumer to pin a subsequent resolution to the same version and bytes.
+**Floor:** The optional minimum target revision. Comparison uses the target profile's order, not lexical order or publication time. A SemVer TD floor also limits selection to the floor major.
 
-A version-aware resolver MAY use a registry, a local model catalog, or another source of candidates. How it discovers candidates or maps a retrieval URI to a target identifier is outside this proposal. It MUST establish the target identity and MUST NOT combine candidates with different `id` values.
+**Compatibility line:** An absolute URI declaring backward compatibility among incremental revisions in one authoritative sequence. Line URIs are compared exactly and case-sensitively; they have no order.
+
+**Resolution record:** Consumer- or resolver-owned output identifying the target, selected revision, exact-byte digest, origin and applicable profile and line expectations. Retaining the record allows verification of a later replay.
+
+**Snapshot:** An immutable publication set fixing document revisions, relevant metadata, original reference bases, contexts, and exact dependency bindings.
+
+**Channel:** A scoped mutable name selecting a snapshot. Its name does not assert compatibility.
+
+A version-aware resolver MAY use a registry, a local model catalog, or another source of candidates. How it discovers candidates or maps a retrieval URI to a target identifier is outside this proposal. It MUST establish the target identity and one authoritative source sequence before comparing revisions. It MUST NOT combine candidates with different `id` values or independent incremental sequences merely because their authored identifiers match.
+
+The provider MUST declare the profile for its candidate set through an established endpoint or catalog contract. A legacy provider supporting only this proposal's SemVer rules MAY omit that declaration; absence means SemVer only under that legacy contract. An unknown or unavailable profile MUST fail version-aware resolution. A processor MUST NOT infer a profile from integer-looking content or switch profiles per document. Profile provisioning and revision allocation are provider responsibilities, not WoT document syntax.
 
 ## 3. Vocabulary and JSON-LD context
 
-The proposed term `tm:minVersion` uses the Thing Model namespace `https://www.w3.org/2019/wot/tm#`; `td:minVersion` uses the Thing Description namespace `https://www.w3.org/2019/wot/td#`. Both are string-valued members, not IRI-valued references, and both use the same syntax: a valid [SemVer 2.0.0](https://semver.org/spec/v2.0.0.html) version without build metadata. For example, `1.2.0` and `1.3.0-rc.1` are valid; `1.2`, `v1.2.0`, `^1.2.0`, `>=1.2.0`, and `1.2.0+build.7` are invalid. SemVer's numeric and prerelease identifier rules, including the restrictions on leading zeroes, apply.
+The proposed SemVer term `tm:minVersion` uses the Thing Model namespace `https://www.w3.org/2019/wot/tm#`; `td:minVersion` uses the Thing Description namespace `https://www.w3.org/2019/wot/td#`. Both are string-valued members, not IRI-valued references, and both use the same syntax: a valid [SemVer 2.0.0](https://semver.org/spec/v2.0.0.html) version without build metadata. For example, `1.2.0` and `1.3.0-rc.1` are valid; `1.2`, `v1.2.0`, `^1.2.0`, `>=1.2.0`, and `1.2.0+build.7` are invalid. SemVer's numeric and prerelease identifier rules, including the restrictions on leading zeroes, apply. The provider-generated bookkeeping form `0.0.0-N` MUST NOT be used as a floor, even if the corresponding revision is absent. Registry-specific identifier length limits are not WoT vocabulary constraints.
 
 | Location | Cardinality | Meaning |
 | --- | --- | --- |
 | TM link with `rel: "tm:extends"` | 0..1 | Floor for the parent TM |
 | TM link with `rel: "tm:submodel"` | 0..1 | Floor for the child TM |
 | Object containing ordinary `tm:ref` | 0..1 | Floor for the TM containing the referenced definition |
-| TD link with `rel: "type"` | 0..1 | Explicit TM floor; required when several type links occur and the TD has `version.model` |
+| TD link with `rel: "type"` | 0..1 | Explicit TM floor; required when several type links target SemVer TMs and the TD has `version.model` |
 | TD link with `rel: "td:extends"` or `rel: "td:subthing"` | 0..1 | Floor for the target TD |
 | Object containing ordinary `td:ref` | 0..1 | Floor for the target TD containing the referenced definition |
 | Projection source-manifest entry with a TM target | 0..1 | Floor for the source TM |
@@ -77,19 +87,61 @@ The examples extend the TD 1.1 context with an explicit prefix and string mappin
 
 The context declares the term's mapping; it does not standardize the term or implement resolution. Adoption requires changes to the vocabulary, contexts, validation schemas, and processor behavior. Compact link relation spellings such as `tm:extends` follow the TM link-relation rules. A JSON-LD prefix declaration alone does not define how to expand arbitrary `rel` strings. `type`, `successor-version`, and `latest-version` are link relation names, not proposed TM terms.
 
+### 3.1 Incremental requirements and deployment mapping
+
+The incremental contract requires a target compatibility-line selector and permits an integer floor at the same supported reference locations. Root line metadata declares the containing revision's line; reference-level metadata selects the target's line. The root declaration MUST NOT be inherited by dependencies. Core WoT names for these members remain an adoption question; this proposal does not invent a `tm:compatibilityLine` or `td:compatibilityLine` term.
+
+The informative xRegistry design proposes this deployment mapping in the existing OPC UA WoT Binding namespace:
+
+```json
+{
+  "@context": {
+    "uav": "http://opcfoundation.org/UA/WoT-Binding/",
+    "uav:minVersion": {
+      "@id": "uav:minVersion",
+      "@type": "http://www.w3.org/2001/XMLSchema#string"
+    },
+    "uav:compatibilityLine": {
+      "@id": "uav:compatibilityLine",
+      "@type": "@id"
+    }
+  }
+}
+```
+
+This is a proposed context excerpt, not a complete TD/TM context or evidence that a published context supports the terms. `uav:minVersion` serves either target kind. The existing operator, type link or source media type still determines TD versus TM. For a SemVer target it maps to the applicable SemVer floor; for an incremental target it maps to the numeric floor. `uav:compatibilityLine` is valid only for incremental selection or an incremental root declaration.
+
+A processor implementing this mapping MUST normalize one accepted spelling into one requirement. A reference carrying both `uav:minVersion` and either legacy floor term MUST fail as `invalid-floor`, even if the values agree. The legacy terms retain their target-kind restrictions and MUST NOT be reinterpreted as integer floors. Authors MUST NOT duplicate composition or type links to carry alternate vocabulary spellings. Structural authoring validation is separate from the raw pin selection path in Section 6.
+
 ## 4. Model identity and compatibility
+
+### 4.1 SemVer profile
 
 A TM author MUST use a new `id` for a breaking change, including a change that makes an earlier version's valid use incompatible. All versions published under one TM `id` MUST be backward compatible with earlier versions under that identifier. The major compatibility line belongs in the identifier; an identifier such as `urn:example:pump:v1` distinguishes it from `urn:example:pump:v2`. This proposal does not prescribe an identifier syntax or require a literal `v1` suffix.
 
-An authored SemVer major-version change MUST use a new `id`. Minor and patch changes under one `id` MUST preserve backward compatibility. A resolver MUST NOT search a successor identifier to satisfy a floor on the original identifier, even if that successor has a numerically higher version.
+A TM's authored SemVer major-version change MUST use a new `id`. Minor and patch changes under one TM `id` MUST preserve backward compatibility. A resolver MUST NOT search a successor identifier to satisfy a floor on the original identifier, even if that successor has a numerically higher version.
 
-For a TD, `id` identifies a concrete Thing and does not carry a compatibility major. A breaking revision therefore retains the TD `id` and advances the major component of `version.instance`. Thing Description Resources use SemVer versioning with one version root. When `version.instance` is SemVer without build metadata, a registry MUST assign that value as `versionid` when omitted and MUST reject a supplied mismatch as `version-mismatch`. Build metadata MUST fail as `invalid-version`. If `version.instance` is absent or is not SemVer, the registry MUST assign the lowest free `0.0.0-N`; a supplied `versionid` MUST match that assignment or fail as `version-mismatch`. `versionorigin` is server-set to `authored` for a SemVer `version.instance` and `generated` for an assigned id. The registry MUST NOT rewrite `version.instance`. Generated identifiers MUST NOT be used as floors. The TD's `version.model` remains the implicit floor only for its `rel: "type"` TM link; it does not provide an implicit floor for TD-to-TD references.
+For a TD, `id` identifies a concrete Thing and does not carry a compatibility major. A breaking revision therefore retains the TD `id` and advances the major component of `version.instance`. The TD's `version.model` remains the implicit floor only for its `rel: "type"` TM link; it does not provide an implicit floor for TD-to-TD references.
 
-Candidates used for TM version resolution MUST have an authored `version.model` satisfying the syntax in Section 3. A TM without such a version cannot establish that it satisfies a floor and MUST NOT be assigned an inferred version for comparison. Registry-generated version labels are not authored model versions and MUST NOT be used as floors. These restrictions concern version resolution, not whether the document can be processed as an ordinary unversioned TM.
+An authored version used for SemVer comparison MUST satisfy Section 3's syntax. A provider MAY explicitly support generated SemVer bookkeeping revisions for unchanged documents lacking an authored SemVer version. Such revisions are prereleases, not authored compatibility promises, and cannot be floors. They require prerelease opt-in, a raw pin or a sticky default to be selected. A resolver MUST NOT invent a candidate version when the provider supplies neither a valid authored version nor an explicitly supported generated revision. Assignment syntax and storage lineage belong to the provider profile; Section 9.4 describes xRegistry's mapping.
 
-A TM target is compared by its authored `version.model`; a TD target is compared by its authored `version.instance`. A TD's `version.model` supplies a floor only for its `rel: "type"` TM link. The referencing document's version and a registry's internal revision label do not supply the target version. A version number is an author's compatibility claim, not evidence of compatibility or document authenticity. Authors SHOULD validate compatibility before publication.
+An authored TM version comes from `version.model`; an authored TD version comes from `version.instance`. A TD's `version.model` supplies a floor only for its `rel: "type"` SemVer TM link. Apart from explicitly supported generated bookkeeping revisions, an internal storage label does not supply a SemVer candidate version. A version number is an author's compatibility claim, not evidence of compatibility or document authenticity. Authors SHOULD validate compatibility before publication.
+
+### 4.2 Incremental profile
+
+An incremental revision and floor MUST be canonical positive decimal strings matching `[1-9][0-9]*`. A resolver MUST compare them as integers without rounding or fixed-width overflow; decimal length followed by ordinal comparison is sufficient. The provider's revision, not the document's authored version label, supplies the ordering key.
+
+A publisher can supply unchanged bytes with an absent, integer, SemVer or free-form authored version. The provider MUST preserve those bytes and bind the assigned revision, profile, origin, exact digest and effective compatibility line through trusted metadata. If the bytes declare a root line and authorized publication metadata also declares one, the publisher MUST reject disagreement. Each revision fixes its line membership, including absence; changing that declaration requires another revision.
+
+A later revision in one line claims backward compatibility with every earlier revision in that line. A breaking change uses another line; the target's `id` can remain unchanged for either a TM or TD. Neither integer order, lineage nor the line label proves semantic compatibility. Publisher authorization and compatibility validation remain separate obligations.
+
+A revision without a line MAY be stored and retrieved exactly, but MUST NOT participate in automatic line selection. The publishing boundary MUST report that limitation. A provider assigning revisions MUST prevent reuse within the same source sequence, including after deletion or restart; the durable allocation mechanism and upload retry protocol are outside this proposal. Copying to an independent sequence requires an explicit mapping before old numeric floors or pins can be reused.
+
+An offline catalog or cache supplying declarations absent from the bytes MUST retain their trusted association with the exact revision and digest. A digest alone does not authenticate a profile, publisher or line.
 
 ## 5. Determining the floor
+
+Sections 5.1–5.4 retain SemVer requirements. Section 5.5 defines incremental line selection and numeric floors.
 
 ### 5.1 Explicit TM-reference floors
 
@@ -101,7 +153,7 @@ An omitted floor imposes no minimum version. When version resolution is requeste
 
 ### 5.2 Exactly one TD type link
 
-When a TD contains exactly one link with `rel: "type"` and has `version.model`, that value MUST be treated as the floor for the link. The value MUST satisfy Section 3's version syntax. It states the model version needed by the TD, not an exact revision to retrieve.
+Before deriving type-link floors, a resolver MUST determine the target profiles of the TD's type links. When exactly one of those links targets a SemVer TM and the TD has `version.model`, that value MUST be treated as the floor for that link. The value MUST satisfy Section 3's version syntax. It states the model version needed by the TD, not an exact revision to retrieve.
 
 The link MAY also carry `tm:minVersion`. If both an explicit and an implicit floor apply, both MUST be satisfied: the effective floor is the greater value by SemVer precedence. An explicit lower value MUST NOT weaken the TD's implicit floor. Prerelease eligibility is determined from that effective floor.
 
@@ -109,9 +161,11 @@ If `version.model` is absent, the link's explicit floor applies when present. Th
 
 ### 5.3 Several TD type links
 
-When a TD contains several links with `rel: "type"` and has `version.model`, each link MUST carry its own `tm:minVersion`. If any link lacks that member, unpinned resolution MUST fail as `ambiguous-floor`, including when resolving a different, fully specified link. When every link has an explicit floor, the effective floor for each link MUST be the greater of its own `tm:minVersion` and the TD's `version.model` by SemVer precedence. The resolver MUST validate both values and determine prerelease eligibility from the effective floor. It MUST NOT use `version.model` in place of a missing per-link floor.
+When several type links target SemVer TMs and the TD has `version.model`, each SemVer link MUST carry its own explicit floor. If any SemVer link lacks that member, unpinned resolution MUST fail as `ambiguous-floor`, including when resolving a different, fully specified link. When every SemVer link has an explicit floor, the effective floor for each MUST be the greater of its own floor and the TD's `version.model` by SemVer precedence. The resolver MUST validate both values and determine prerelease eligibility from the effective floor. It MUST NOT use `version.model` in place of a missing per-link floor.
 
-A TD without `version.model` has no implicit floor. Each type link MUST use its own `tm:minVersion` if present, and otherwise has no floor. A missing floor in this case MUST NOT produce `ambiguous-floor`; TDs with several unversioned type links can be resolved without adding floors. Each link is resolved independently against its own target TM.
+A TD without `version.model` has no implicit floor. Each SemVer type link MUST use its own explicit floor if present, and otherwise has no floor. A missing floor in this case MUST NOT produce `ambiguous-floor`; TDs with several unversioned SemVer type links can be resolved without adding floors. Each link is resolved independently against its own target TM.
+
+These implicit-floor and ambiguity rules apply only to the SemVer-target subset. With one SemVer link and one incremental link, only the SemVer link receives the implicit model floor. Each incremental link independently requires its own line and OPTIONAL numeric floor under Section 5.5. An unknown target profile MUST fail rather than removing that link from consideration.
 
 If a TD has no `type` links, the resolver has no link to which it can attribute an implicit floor. This proposal does not infer a target from `version.model` alone or change ordinary TD validation for that case.
 
@@ -152,30 +206,56 @@ A TD composition link can constrain its target to the `1.x` major line:
 }
 ```
 
+### 5.5 Incremental references
+
+An unpinned reference to an incremental TM or TD MUST explicitly select a compatibility line. It MAY state a numeric minimum revision. A floor without a line, or a reference with neither, MUST fail as `compatibility-required`. Omission of the floor imposes no minimum; it does not imply revision `1`.
+
+Neither the referencing document's `version.model`, `version.instance` nor root line supplies a requirement for an incremental target. There is no SemVer major cap or prerelease filter. A line selector on a SemVer target, an invalid line URI, or a selector at an unsupported location MUST fail rather than be ignored.
+
+A malformed numeric floor MUST fail as `invalid-version`. Structural conflicts between accepted vocabulary forms MUST fail as `invalid-floor`. These names identify resolution outcomes, not a new protocol error envelope.
+
+The following abbreviated link uses the deployment mapping from Section 3.1, not proposed core WoT term names:
+
+```json
+{
+  "rel": "td:extends",
+  "href": "urn:example:pump:base",
+  "uav:compatibilityLine": "urn:example:pump:control-a",
+  "uav:minVersion": "42"
+}
+```
+
+The same requirements can qualify TM operators, TD type links, ordinary reference objects and projection source entries. For `tm:ref` or `td:ref`, the requirement members are siblings of the string-valued reference. Selection precedes fragment evaluation. A document-local reference checks the containing revision's line and floor without substituting another revision. A missing fragment target or failed requirement MUST fail composition.
+
 ## 6. Resolution semantics
 
 ### 6.1 Selection
 
-For each reference requiring version resolution, a resolver MUST:
+For standalone live resolution, a resolver MUST apply these steps in order:
 
-1. Validate the reference and determine the target identifier and effective floor according to Sections 3–5.
-2. Obtain candidates for that identifier and validate their document kind and `id`. Compare a TM candidate by its authored `version.model`, or a TD candidate by its authored `version.instance`. Invalid candidate representations MUST NOT be treated as eligible versions.
-3. Exclude prerelease candidates unless the effective floor is a prerelease or the consumer explicitly opts in to prerelease selection. A prerelease floor enables prerelease candidates for that reference; it is not an exact prerelease pin.
-4. Exclude candidates below the floor, if a floor is present, using SemVer 2.0.0 precedence. For a TD target with a floor, also exclude candidates whose major is at least `floor.major + 1`, including prereleases of the next major. A TD target without a floor has no major-version cap.
-5. Select the highest eligible version by SemVer precedence. Publication order, retrieval order, and registry default pointers MUST NOT replace version precedence.
-6. Complete ordinary reference processing against the selected document, including its fragment and dependencies, or report an error.
+1. Establish the target identifier, expected kind, authorized source and candidate sequence. A missing target fails as `not-found`. Validate candidate identity and representation; invalid candidates MUST NOT be treated as eligible.
+2. If the caller supplies a raw exact pin, retrieve it under Section 6.2 before floor derivation or default selection. Do not use this bypass for snapshot-bound composition.
+3. Determine the target profile and derive the applicable requirements under Sections 3–5. For multiple SemVer type links, report missing explicit floors as `ambiguous-floor` before validating individual floor values.
+4. If the provider declares an operator-selected sticky default, use that exact revision. Fail if it is unavailable or violates the line, floor or TD major cap. Do not replace it with another revision. A sticky SemVer choice bypasses prerelease filtering, but not the floor or cap.
+5. Otherwise, for SemVer targets, exclude prereleases unless the effective floor is a prerelease or the consumer explicitly opts in. Exclude versions below the floor and, for a floored TD, versions whose major is at least `floor.major + 1`, including next-major prereleases. Select the highest remaining version by SemVer precedence.
+6. Otherwise, for incremental targets, restrict candidates to the required line and optional numeric floor, then select the highest integer revision. Generated integer revisions are ordinary candidates, not prereleases.
+7. Fail as `unsatisfied` if no eligible revision exists. Complete ordinary reference processing against the selected document, including its fragment and dependencies, or report an error.
+
+A non-sticky raw retrieval default, publication order or retrieval order MUST NOT replace profile-specific selection. A provider that cannot expose the profile or default policy needed for constrained resolution MUST report unsupported resolution rather than treat raw retrieval as a successful match.
 
 A release has higher precedence than prereleases of the same major, minor, and patch values. Numeric prerelease identifiers are compared numerically under SemVer; for example, `1.3.0-rc.10` has higher precedence than `1.3.0-rc.2`. A prerelease such as `1.2.0-rc.1` is below a release floor of `1.2.0`, even when the consumer opts in.
 
-If no eligible candidate satisfies the floor and, for a TD target, its major-version cap, resolution MUST fail. A resolver MUST NOT downgrade below the floor, cross the cap, discard an invalid floor, substitute a different identifier, or report a partial composition as successful. If candidates with different bytes claim the same identifier and version, the resolver MUST report an inconsistent publication rather than choose one.
-
-An explicit resolution pin, such as a version identifier or a digest from a prior resolution record, lets the caller repeat a resolution against the selected candidate. The pin selects that candidate before the unpinned floor, prerelease, and highest-version rules apply. The resolver MUST verify the target identity, candidate version syntax, and exact bytes when a digest is supplied. A missing pinned candidate or digest mismatch MUST fail without an unpinned fallback. The authored reference and its floor do not change; the floor governs unpinned resolution.
+If no eligible candidate satisfies the requirements, resolution MUST fail. A resolver MUST NOT downgrade below the floor, cross a cap, discard an invalid requirement, bypass a sticky default, substitute a different identifier, or report a partial composition as successful. Conflicting bytes or fixed metadata claiming the same source revision identity MUST produce an inconsistent-publication error.
 
 ### 6.2 Resolution records and reproducibility
 
-A successful resolution SHOULD return a record containing the target identifier, selected target version (`version.model` for a TM or `version.instance` for a TD), a cryptographic digest of the selected document's exact bytes, and the resolver origin. A consumer requiring reproducibility MUST retain both the version and digest. The digest algorithm and digest MUST be identified; SHA-256 is RECOMMENDED. The resolver MUST NOT canonicalize or transform the bytes before calculating an exact-bytes digest.
+A successful resolution MUST return a record containing the target identifier, selected revision, a cryptographic digest of the selected document's exact bytes, and the source origin/sequence. The record MUST identify the applicable profile and effective line when incremental expectations apply. A consumer requiring reproducibility MUST retain the revision, digest and applicable metadata expectations. The digest algorithm and digest MUST be identified; SHA-256 is RECOMMENDED. The resolver MUST NOT canonicalize or transform the bytes before calculating an exact-bytes digest.
 
-A consumer MAY supply that record on a subsequent resolution. The resolver MUST retrieve the pinned version and verify its target identity, target-kind-specific version syntax, and exact-byte digest. A missing pinned version or mismatching digest MUST fail; it MUST NOT trigger an unpinned fallback. The record repeats the caller's selection without rerunning floor or prerelease candidate selection. To select the highest eligible version, the consumer performs a new unpinned resolution and retains a new record.
+A raw exact retrieval selects a revision by its source-scoped revision identifier or exact digest. It bypasses floor derivation, line selection, the TD major cap, prerelease filtering and sticky-default selection; it does not authorize identity, authorization, byte or recorded-metadata mismatches. Missing pinned content MUST fail without an unpinned fallback.
+
+A bare digest can match identical bytes in several revisions or lines. The resolver MUST select the highest matching revision under the known profile; that result pins bytes, not a particular line membership. To replay a particular publication, the consumer uses its revision identifier and verifies its retained digest and metadata expectations. A richer stored record does not require an API to accept both revision and digest selectors; xRegistry currently accepts at most one selector kind per request.
+
+To select newer candidates, the consumer performs a new unpinned resolution and retains a new record. Refresh and deployment activation are separate caller operations. Snapshot-bound composition instead follows Section 9.2: an exact binding fixes the candidate but does not bypass compatibility acceptance.
 
 The resolver's selected version and digest MUST NOT be written into the authored WoT document as a pin for these references. A resolver MUST NOT replace the floor with the selected version or rewrite the target to a registry-specific revision identifier. Keeping the authored requirement separate from the resolution result allows the document to be used across catalogs and registries.
 
@@ -183,7 +263,7 @@ This separation does not prohibit the distinct, explicitly authored `wotproj:sou
 
 ### 6.3 Resolution cases
 
-These cases assume unpinned resolution of one target identifier and no operator restriction. A dash in the floor column means the reference omits a floor.
+These cases assume SemVer unpinned resolution of one target identifier and no sticky default. A dash in the floor column means the reference omits a floor.
 
 | Available authored versions | Floor | Consumer allows prereleases | Result |
 | --- | --- | --- | --- |
@@ -201,13 +281,26 @@ These cases assume unpinned resolution of one target identifier and no operator 
 | TD target: `1.2.0`, `2.0.0` | — | No | `2.0.0` |
 | TD target: `1.2.0-rc.1`, `1.3.0-rc.1`, `2.0.0-rc.1` | `1.2.0-rc.1` | No | `1.3.0-rc.1` |
 
-A TD with one type link and `version.model: "1.2.0"` has the same result as an explicit floor of `1.2.0`. A TD with two type links, `version.model`, and a link without an explicit floor fails attribution before candidate selection. Without `version.model`, the same TD resolves each link without a floor.
+A TD with one SemVer type target and `version.model: "1.2.0"` has the same result as an explicit floor of `1.2.0`. A TD with two SemVer type targets, `version.model`, and a link without an explicit floor fails attribution before candidate selection. Without `version.model`, each SemVer link uses only its explicit floor, if present.
+
+The following cases separate incremental live selection, raw replay and publication acceptance. A and B abbreviate distinct absolute line URIs in one source sequence.
+
+| Operation and candidates | Requirement | Result |
+| --- | --- | --- |
+| Live: `42/A`, `43/B`, `44/A` | Line A, no floor | `44/A` |
+| Live: same history | Line A, floor `45` | `unsatisfied` |
+| Live: same history | Floor `42`, no line | `compatibility-required` |
+| Live: same history, sticky `43/B` | Line A | `unsatisfied`; do not select `44/A` |
+| Live SemVer: `1.4.0`, `1.7.0`, sticky `2.0.0` | TD floor `1.4.0` | `unsatisfied`; do not select `1.7.0` |
+| Raw replay: revision `42/A` retained | Current authored floor `44` | Retrieve `42/A`; verify retained expectations |
+| Bare digest: identical bytes at `42/A` and `44/B` | Digest only | `44/B`; no line-membership guarantee |
+| Snapshot binds dependency to `43/B` | Source requires A | Reject composition; no live or older-snapshot fallback |
 
 ## 7. Version-navigation links
 
 A TD or TM MAY include links with `rel: "successor-version"` or `rel: "latest-version"` using the registered relations defined in [RFC 5829](https://www.rfc-editor.org/rfc/rfc5829.html). TD 1.1 also supports `predecessor-version`. A consumer can follow these relations to navigate a version history; they do not constrain versions or determine candidate selection.
 
-A deprecated TM's successor link MAY identify its replacement under a new major-version identifier. A latest-version link MAY locate the latest version in the corresponding version history. Neither link establishes that its target is compatible, has the original identifier, or satisfies a floor. A resolver MUST NOT use navigation links to redirect an existing reference across compatibility lines or to override the selection rules in Section 6.
+A deprecated SemVer TM's successor link MAY identify its replacement under a new major-version identifier. An incremental TM can instead change compatibility lines under the same identifier. A latest-version link MAY locate the latest version in the corresponding version history. Neither link establishes that its target is compatible, has the original identifier, or satisfies a requirement. A resolver MUST NOT use navigation links to redirect an existing reference across compatibility lines or to override the selection rules in Section 6.
 
 Deprecation does not itself make compatible versions ineligible. The [deprecated v1 example](./examples/tm-deprecated-v1.jsonld) states deprecation in its description and links to v2; this proposal introduces no new deprecation member or automatic migration rule.
 
@@ -215,7 +308,7 @@ Deprecation does not itself make compatible versions ineligible. The [deprecated
 
 ### 8.1 TD Composition and Reuse
 
-[TD Composition and Reuse](../td-composition/spec.md) Sections 5–7 define `td:extends`, `td:subthing`, and `td:ref` and their composition behavior. This proposal defines target-version selection for those operators in Sections 5.4 and 6.1. They use `td:minVersion`, not `tm:minVersion`; a floored target is bounded to its major line, while an unfloored reference can cross majors. The target's `version.instance` identifies its revision, and the referencing TD's version members do not supply an implicit floor. Version selection does not change the operator's composition semantics.
+[TD Composition and Reuse](../td-composition/spec.md) Sections 5–7 define `td:extends`, `td:subthing`, and `td:ref` and their composition behavior. This proposal defines target-version selection for those operators. SemVer TD floors use `td:minVersion`, not `tm:minVersion`; a floored target is bounded to its major line, while an unfloored reference can cross majors. Incremental TD targets use an explicit line and optional numeric floor. Neither referencing TD version member supplies an implicit requirement. Version selection does not change the operator's composition semantics.
 
 Ordinary TM composition uses `tm:extends`, `tm:submodel`, and `tm:ref` with version selection performed before the existing operator's processing. Version selection does not change inheritance, child-model semantics, overrides, context preservation, source ownership, security, or cycle handling. A version floor cannot make an otherwise invalid composition valid. When a composed TD includes type links to TMs, the type-link rules apply to those model references independently of TD-to-TD composition.
 
@@ -223,19 +316,63 @@ Ordinary TM composition uses `tm:extends`, `tm:submodel`, and `tm:ref` with vers
 
 [WoT Projection Plans](../wot-projections/spec.md) defines `wotproj:sourceDigest` on a source-manifest entry as an exact-byte SHA-256 pin. The projection processor MUST verify that digest against the source bytes as retrieved, before transforming the source or resolving a nested projection plan. A mismatching or unverified digest MUST fail projection resolution; a higher model version or a satisfied floor cannot substitute for the pinned bytes.
 
-A projection source-manifest entry MAY carry `tm:minVersion` for a TM source or `td:minVersion` for a TD source, as specified in the [WoT Projection Plans proposal](../wot-projections/spec.md#4-source-manifest). The entry's expected media type determines its target kind. The floor uses the same target-kind rules as an ordinary reference: a TM floor has no upper bound, and a TD floor is capped at the next major. Prerelease eligibility follows Section 6.1. Without a floor, a TD source can resolve across major versions. The projection envelope's `version.model` and `version.instance` do not supply an implicit source floor.
+A projection source-manifest entry MAY carry a SemVer floor or an incremental requirement as specified in the [WoT Projection Plans proposal](../wot-projections/spec.md#4-source-manifest). The entry's expected media type determines its target kind; the provider contract determines its profile. A SemVer TM floor has no upper bound, while a SemVer TD floor is capped at the next major. Incremental sources require an explicit line and permit a numeric floor. The projection envelope's `version.model`, `version.instance` and root line do not supply source requirements.
 
-These terms apply to manifest-source resolution, not to selector annotations. Projection selectors that use `tm:ref` in a TM envelope retain their projection-specific meaning; they do not acquire ordinary `tm:ref` floor semantics merely by sharing that member name. The projection proposal's closed selector-annotation set does not admit either floor term. Authors MUST NOT use a selector-local floor to select a different version of a manifest source.
+These requirements apply to manifest-source resolution, not to selector annotations. Projection selectors that use `tm:ref` in a TM envelope retain their projection-specific meaning; they do not acquire ordinary `tm:ref` floor semantics merely by sharing that member name. The projection proposal's closed selector-annotation set admits neither floors nor line selectors. Authors MUST NOT use selector-local requirements to select a different revision of a manifest source.
 
 An ordinary `tm:ref` that is not a projection selector can carry `tm:minVersion` as specified in Section 5.1. Ordinary TM references inside a retrieved source likewise retain their floors during dependency resolution. A source's TD type-link floors are evaluated against that source's own root metadata, not against the projection envelope's `version.model`.
 
 A source digest pins the representation retrieved from that source. If the source is an unresolved nested plan, the digest pins that plan, not its resolved result or the bytes of transitive sources or dependencies. The consumer MUST separately retain dependency resolution records or use the projection proposal's source pins at the relevant dependency boundaries when reproducibility is required.
 
-If a resolver is given both a projection source floor and `wotproj:sourceDigest` for the same source, both MUST be satisfied. It MUST verify the exact pinned representation and check its authored version against the floor: `version.model` for a TM or `version.instance` for a TD, with the TD caret cap and prerelease rules. A pinned version below the floor or outside the TD major range fails; different bytes fail the digest pin. No fallback to another source version is permitted.
+If a resolver is given both a projection source requirement and `wotproj:sourceDigest`, both MUST be satisfied. It MUST verify the exact representation and check its profile-specific compatibility requirement, including SemVer floor/cap/prerelease rules or the incremental line and numeric floor. Different bytes fail the digest pin. Identical bytes in several incremental revisions do not establish line membership; trusted revision metadata is still required. No fallback to another source revision is permitted.
 
-## 9. Registry implementations (informative)
+When a publication snapshot binds a projection source, the processor MUST use that exact binding and validate the source requirement and any authored digest. The digest of a nested plan does not pin the resolved view. Publication closure must cover its reachable source dependencies, with the projection proposal's acyclic-plan rule unchanged.
 
-The draft xRegistry WoT Registry and OPC UA WoT Connectivity specifications specify version resolution and how a registry exposes candidates, authored versions, generated revision labels, and consumer resolution records. For TDs, `version.instance` supplies an authored SemVer `versionid`; generated ids use `0.0.0-N`, and a TD floor limits selection to its major line. This proposal does not define registry storage or information-model mappings. A version-aware resolver uses the target TD's `id` and `version.instance`, or the target TM's `id` and `version.model`, for comparison.
+## 9. Publication and registry mappings
+
+### 9.1 Publication sets and dependency closure
+
+Publishing one changed document does not require assigning new revisions to every document in a release. A publisher can reuse unchanged revisions and capture a complete set in a new snapshot. A source standard's release or a server's model revision is capture provenance, not automatically a document revision or snapshot identity.
+
+A WoT-complete publication MUST retain entry documents, their reachable recognized TM/TD dependencies, exact bytes and fixed metadata, original reference bases, and the context material needed to interpret them. Contexts MUST be retained immutably or supplied through an explicitly supported immutable context set. Merely caching documents or declaring generic registry completeness does not establish WoT dependency closure.
+
+The publisher MUST independently enumerate external reference occurrences from the source bytes and their captured contexts. Recognized references are TM extension/submodel/ordinary-reference operators, TD composition/ordinary-reference operators, TD type links and projection-source entries. A projection selector uses its declared, bound manifest source; it does not create an independent target-selection occurrence merely by using `tm:ref` or `td:ref`. Interaction endpoints, documentation URLs and opaque extension data are not dependencies merely because they contain URIs.
+
+Each recognized external occurrence MUST have exactly one binding to an exact target revision in the captured set. Its key is the source revision plus reference location, not only the target's authored identifier. The binding MUST preserve the authored operator and reference string, including its fragment. With RFC 6901 locations, a link occurrence identifies the link object, an ordinary reference identifies the object containing `tm:ref` or `td:ref`, and a projection source identifies its manifest entry. Two occurrences can bind the same logical target to different revisions.
+
+The publication validator MUST verify the binding against the actual source bytes, target identity, expected kind, original base, and fragment. Bindings MUST cover the complete reachable closure without duplicate, missing, invented or unreachable edges. Local fragment references stay within their source revision and need no external binding. Traversal MUST be bounded; cycle acceptance follows the existing operator's rules, including rejection of cyclic projection plans.
+
+This section defines the required interpretation, not a WoT manifest serialization, signature scheme or lockfile. A publication mechanism must supply an unambiguous binding representation and signal mandatory closure semantics. A consumer requesting WoT-complete interpretation MUST reject absent or unsupported closure information.
+
+### 9.2 Exact selection is not compatibility acceptance
+
+A consumer opening a channel MUST select one snapshot for the operation and retain that context for all document, dependency and collection-page reads. Refresh is a new open operation. Missing content MUST fail; it MUST NOT trigger live highest-version resolution, an older-snapshot search or reopening a changed channel.
+
+Snapshot-bound composition selects the bound exact target first, then MUST validate the authored requirement and caller acceptance policy against it. Incremental targets require the line and any numeric floor. SemVer targets retain effective floors, TD major caps and prerelease eligibility. A captured sticky default governs raw retrieval in that snapshot, not an explicit dependency binding. The raw pin bypass in Section 6.2 MUST NOT be used to waive snapshot compatibility acceptance.
+
+For example, snapshot S12 binds a line-A dependency to revision 42. A later revision 43/B does not change S12. If channel `preview` moves to S13 with that dependency bound to 43/B, a consumer requiring A rejects S13. It does not silently select 42 from S12 or a newer live line-A revision.
+
+### 9.3 Lifecycle, offline replay and federation
+
+The publication mechanism MUST validate and retain a complete immutable snapshot before exposing it through a channel head. A head update MUST be conditional on the observed channel state; a stale update fails rather than overwriting another publisher. Forking can share a snapshot, promotion can select the already reviewed snapshot, and rollback can restore an earlier snapshot without renumbering documents. Existing readers remain on their selected contexts. A timeout leaves the update outcome unknown until reconciled with authoritative state; it is not permission to repeat anonymous uploads.
+
+Offline replay requires the checked snapshot description, metadata, contexts, dependency bindings and exact bytes. Missing, corrupt or untrusted required material MUST fail without network fallback. Retention and authorization remain deployment policy; deletion or revocation can make an old pin unavailable and MUST NOT cause silent substitution.
+
+A federated provider MUST establish the owning source sequence before domain revision selection. Under xRegistry's informative mapping, local/ordered precedence selects a whole Resource and its Versions; a missing Version, compatibility failure or denied access cannot be repaired from a lower-priority source. Multiple source pins alone do not reproduce the combined view: the interpreted model and exact composition policy must also be retained, or the producer must materialize a complete combined snapshot.
+
+Independent source captures are not a simultaneous capture. A publisher claiming source-wide consistency MUST retain evidence of the source's capture guarantee; immutable output alone is insufficient. Original domain reference bases MUST survive relocation, independently of storage paths or catalog URLs.
+
+### 9.4 xRegistry mapping (informative)
+
+The current [xRegistry WoT specification][xRegistry WoT] and [decision record][xRegistry decisions] define the SemVer baseline. Its [versioning design][xRegistry versioning] and [overview][xRegistry overview] propose the additional incremental profile; they do not replace that baseline specification or demonstrate runtime support. The [WoT publication companion][xRegistry WoT publication] is an informative closure design, while the separate [generic publication working draft][xRegistry publication] defines xRegistry-specific manifests, channels, conditional updates and access contexts. All remain unreleased drafts.
+
+In the SemVer mapping, TM `version.model` and TD `version.instance` supply `versionid` when valid; missing or non-SemVer values receive `0.0.0-N` with the lowest unused positive N. The provider records `versionorigin` without rewriting document bytes. Build metadata and Core identifier-limit violations fail publication. The proposed incremental mapping uses a durable high-water mark. A canonical authored integer supplies the revision only above that mark; an older integer fails new publication. An absent or non-integer authored value instead receives the next integer. Both maps preserve source identity, but independent integer sequences are not interchangeable. These assignment algorithms, Core lineage aspects and identifier limits are not W3C WoT requirements.
+
+xRegistry's generic publication model identifies a snapshot by the SHA-256 of exact manifest bytes. Its channel head is a checked manifest descriptor updated conditionally with the channel Meta epoch; rollback advances that epoch, and deleted channel Resource identities cannot be reused. Groups are organizational containers, not channels, snapshots or compatibility lines. A WoT closure extension binds source Version/reference locations to exact target Versions; this draft does not copy its XIDs or extension format into WoT vocabulary.
+
+The [federation draft][xRegistry federation] separates source ownership, original reference bases and capture completeness. A publication HTTP projection exposes a snapshot-specific root and a checked open-context record under the [HTTP binding][xRegistry HTTP]. Git commits, OCI digests and publication IDs remain distinct; an alternate binding needs a checked association to the captured model, metadata and bytes before claiming the same publication. Read-only federation does not provide publication writes.
+
+The checked SemVer vectors establish only their documented baseline cases. Generic publication examples exercise synthetic state and integrity; the WoT closure sample/schema checks shape, not independent closure discovery, compatibility enforcement, durable allocation or deployed cross-binding conformance.
 
 ## 10. Security considerations
 
@@ -245,6 +382,21 @@ Resolvers SHOULD enforce safe-fetching policies covering URI schemes, destinatio
 
 ## 11. Examples and adoption work
 
-The [example guide](./examples/README.md) lists illustrative JSON-LD documents for TM floors, TD-to-TD composition floors, TD instance versions, and model navigation. Example target IRIs identify externally supplied documents; the examples are not a candidate repository or an executable resolution service.
+The [example guide](./examples/README.md) lists illustrative JSON-LD documents for SemVer floors and versions, incremental requirements, and model navigation. Example target IRIs identify externally supplied documents; the examples are not a candidate repository or an executable resolution service.
 
-Integrating these requirements into the specification requires adding both floor terms to their vocabularies and supported JSON-LD contexts, updating link and reference validation schemas, documenting processor capabilities, and testing TM and TD version selection across independent implementations. This proposal does not modify the base TD/TM context or schemas in this repository. Open issues are how to signal support when processors can ignore extension terms, how to discover candidates safely, and what evidence is needed to verify backward compatibility claims.
+Integrating these requirements into the specification requires vocabulary/context and validation changes, capability signalling, and independent implementation evidence. This proposal does not modify the base TD/TM context or schemas in this repository. The following remain open:
+
+- Core WoT names and context mappings for incremental line declarations, selectors and floors; the `uav` mapping is a deployment proposal, not W3C adoption.
+- How processors signal support instead of ignoring requirements, and how providers expose trusted profile, sequence and sticky-default information across discovery mechanisms.
+- Evidence for compatibility claims, independent closure discovery, snapshot acceptance and offline replay across implementations.
+
+The source references below pin the xRegistry PR head reviewed for this alignment, `26c500165a8b49266fa2c97122c203b96c0d2338` from [xregistry/spec#571](https://github.com/xregistry/spec/pull/571). A later editorial or design revision requires another comparison; the linked design prose is not normative W3C authority.
+
+[xRegistry WoT]: https://github.com/marcschier/xregistry-drafts/blob/26c500165a8b49266fa2c97122c203b96c0d2338/workingdrafts/models/wot/spec.md
+[xRegistry decisions]: https://github.com/marcschier/xregistry-drafts/blob/26c500165a8b49266fa2c97122c203b96c0d2338/workingdrafts/models/wot/decisions.md
+[xRegistry versioning]: https://github.com/marcschier/xregistry-drafts/blob/26c500165a8b49266fa2c97122c203b96c0d2338/workingdrafts/models/wot/versioning-design.md
+[xRegistry overview]: https://github.com/marcschier/xregistry-drafts/blob/26c500165a8b49266fa2c97122c203b96c0d2338/workingdrafts/models/wot/versioning-design-summary.md
+[xRegistry WoT publication]: https://github.com/marcschier/xregistry-drafts/blob/26c500165a8b49266fa2c97122c203b96c0d2338/workingdrafts/models/wot/publication-design.md
+[xRegistry publication]: https://github.com/marcschier/xregistry-drafts/blob/26c500165a8b49266fa2c97122c203b96c0d2338/workingdrafts/publication/spec.md
+[xRegistry federation]: https://github.com/marcschier/xregistry-drafts/blob/26c500165a8b49266fa2c97122c203b96c0d2338/workingdrafts/federation/spec.md
+[xRegistry HTTP]: https://github.com/marcschier/xregistry-drafts/blob/26c500165a8b49266fa2c97122c203b96c0d2338/workingdrafts/bindings/http-federation.md

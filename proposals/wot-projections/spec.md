@@ -27,8 +27,9 @@ from its sources.
 A projection plan is a TD or TM envelope marked to indicate that it is not yet an ordinary,
 usable TD or TM. It describes selections by reference, optionally contributes annotations or
 local affordance definitions, and can be resolved by a projection-aware
-processor. Its source manifest can select source revisions by target kind: TM
-floors are uncapped, while TD floors select within a major version. Resolution
+processor. Its source manifest can constrain revisions by the source's declared
+profile: SemVer TM floors are uncapped, SemVer TD floors select within a major,
+and incremental sources require an explicit compatibility line. Resolution
 produces a complete TD or TM that existing WoT implementations can process.
 
 A projection plan is distinct from TM inheritance and reuse mechanisms such as `tm:extends`,
@@ -62,7 +63,10 @@ for the envelope kind. The term is chosen by the envelope kind, not the source k
 `td:` denotes `https://www.w3.org/2019/wot/td#`; defining the proposed `td:ref` requires
 vocabulary, context, validation, and processing changes, not merely declaring a prefix.
 Source floors use `tm:minVersion` for TM sources and `td:minVersion` for TD sources,
-independently of the selector term. Cross-kind selections remain specific to marked
+under the SemVer profile, independently of the selector term. Incremental source
+requirements follow the separate contract and informative deployment mapping in
+the [versioned-reference proposal][Versioned-reference proposal]; core WoT names
+remain open. Cross-kind selections remain specific to marked
 projection plans; they do not extend ordinary TD-to-TD or TM-to-TM composition to
 cross-kind targets.
 
@@ -202,26 +206,42 @@ A source entry MAY also contain:
 
 - `wotproj:routing`: `source` or `projection`; `source` is the default;
 - `tm:minVersion` or `td:minVersion`: an optional floor for a TM or TD source,
-  respectively;
+  respectively, under the SemVer profile;
+- an incremental compatibility-line selector and optional numeric floor under
+  the versioned-reference proposal's supported deployment mapping;
 - `wotproj:sourceDigest`: an optional digest pin in the form
   `sha-256:<64 lowercase hexadecimal digits>`;
 - `wotproj:namePrefix`: an optional prefix applied to affordance names selected in bulk;
 - `wotproj:selectAll`: a boolean indicating selection of every affordance in the source; and
 - `wotproj:select`: an array of bounded selection predicates.
 
-A source entry's `type` determines its target kind. A TM source MAY carry only
-`tm:minVersion`; a TD source MAY carry only `td:minVersion`. A source entry
-with both floor terms, or with a floor for the other target kind, MUST fail as
+A source entry's `type` determines its target kind, not its version profile.
+The provider contract MUST establish that profile before constrained source
+selection; a processor MUST NOT infer it from the document's version string.
+For SemVer sources using the provisional core terms, a TM source MAY carry only
+`tm:minVersion`; a TD source MAY carry only `td:minVersion`. The informative
+deployment mapping also permits one `uav:minVersion` for either target kind.
+A source entry with both core floor terms, or with a core floor for the other target kind, MUST fail as
 `invalid-floor`. The floor MUST use the syntax in the [versioned-reference
 proposal][Versioned-reference proposal] and MUST NOT use a generated
 `0.0.0-N` id. A TM floor has no upper bound. A TD floor is a caret bound:
 `X.Y.Z` selects versions from `X.Y.Z` up to but not including `(X+1).0.0`,
-including when X is zero. An unfloored source selects the highest eligible
-version for its kind, and an unfloored TD source can cross major versions.
-Prerelease eligibility follows Section 6.1. The processor MUST use the
-authored `version.model` for a TM source and `version.instance` for a TD
+including when X is zero. Without a sticky default, an unfloored SemVer source
+selects the highest eligible version for its kind, and an unfloored TD source
+can cross major versions. Prerelease and sticky-default behavior follow
+[versioned-reference selection](../td-versioned-references/spec.md#61-selection).
+For authored SemVer versions, the processor MUST use
+`version.model` for a TM source and `version.instance` for a TD
 source. The projection envelope's own `version.model` or `version.instance`
 MUST NOT supply a source floor.
+
+An incremental source MUST have its own explicit compatibility-line selector
+and MAY have a numeric floor. The plan's root line and version members MUST NOT
+be inherited by sources. Requirements belong on the source entry, never on an
+explicit affordance selector. The informative mapping uses
+`uav:compatibilityLine` and `uav:minVersion`; it does not replace `td:ref`,
+`tm:ref` or other composition operators. Duplicate legacy/new floor spellings
+MUST fail as `invalid-floor`.
 
 A source MAY itself be a projection plan. It is resolved before its affordances are selected.
 The graph of projection plans MUST be acyclic.
@@ -232,8 +252,18 @@ be lowercase. The processor MUST NOT canonicalize or otherwise transform the byt
 hashing. A mismatch MUST fail resolution and identify the source. If the source is provided
 only as an already-parsed object and its original bytes are unavailable, the processor MUST
 report the pin as unverified and MUST NOT treat it as satisfied. When a source digest and
-floor are both present, the exact pinned source MUST also satisfy that floor and its
-prerelease rules; a mismatch MUST fail without fallback.
+version requirement are both present, the exact pinned source MUST also satisfy
+that requirement: SemVer floor/cap/prerelease rules or the incremental line and
+numeric floor. A mismatch MUST fail without fallback. A digest alone does not
+establish incremental line membership when identical bytes occur in several
+revisions; the processor still needs trusted revision metadata.
+
+For snapshot-bound processing, the exact source occurrence binding selects the
+revision. The processor MUST validate its requirement and any source digest
+against that bound revision; it MUST NOT substitute live highest-version
+selection. A nested plan's digest pins its unresolved bytes, not its resolved
+view or transitive sources. WoT-complete publication follows the
+[closure and acceptance contract](../td-versioned-references/spec.md#9-publication-and-registry-mappings).
 
 ## 5. Selection
 
@@ -338,8 +368,8 @@ resolution fails during final validation.
 Resolution MUST:
 
 1. Validate the marked envelope and projection grammar.
-2. Resolve and validate every source, apply its target-kind floor, and verify any declared
-   source digest.
+2. Resolve and validate every source, apply its profile-specific requirement, and verify
+   any declared source digest.
 3. Recursively resolve source projection plans while detecting cycles.
 4. Identify explicit, bulk, and predicate selections.
 5. Apply deterministic imported-selection precedence and local-definition precedence.
@@ -446,9 +476,11 @@ document.
 
 ## 9. Source changes and security considerations
 
-A projection may change its resolved result when a source changes. A source digest pins a
-selection to exact source bytes, and a source floor constrains its target
-version, as described in Section 4. This proposal does not define
+A projection may change its resolved result when a source changes. A source digest pins
+exact source bytes, while a source requirement constrains compatibility and revision
+selection as described in Section 4. A publication snapshot additionally fixes
+dependency bindings and their metadata; it does not waive those requirements.
+This proposal does not define
 notifications or continuous synchronization.
 
 Projection-aware processors may retrieve multiple documents using author-supplied URIs.
