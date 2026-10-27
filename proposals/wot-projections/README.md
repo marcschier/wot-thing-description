@@ -70,6 +70,14 @@ it is not itself an executable affordance definition.
 
 ### Sources and selection
 
+When consuming a plan through a publication channel, the processor opens one snapshot
+and uses its exact bindings for the plan's source-manifest occurrences and transitive
+dependencies. It checks each bound source against the plan's requirement and any
+authored digest before selecting affordances. It does not choose newer live revisions
+to fill gaps or replace incompatible bindings. The
+[publication model](../td-versioned-references/spec.md#2-publication-model)
+defines that context; standalone live source resolution remains a separate path.
+
 An ordered source manifest gives each source a unique local name, URI, and expected TD/TM
 media type. A source entry can set a SemVer floor
 (`td:minVersion` for TDs, `tm:minVersion` for TMs), or select an incremental
@@ -125,9 +133,8 @@ cyclic, or contradictory security references fail resolution.
 A source may itself be a projection plan. It is resolved before its selected affordances are
 used; the projection dependency graph must be acyclic. Optional source digests can pin a
 source to exact retrieved bytes, but do not pin nested-plan results or transitive
-dependencies. A snapshot-bound source is selected by its exact occurrence binding
-and must still satisfy its authored requirement and digest. Missing or incompatible
-bound content fails without live fallback.
+dependencies. A publication snapshot retains those dependency bindings separately;
+it does not change the projection's affordance selection or collision rules.
 
 ### Fit with WoT specifications
 

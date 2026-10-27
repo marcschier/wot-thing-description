@@ -263,7 +263,7 @@ revision. The processor MUST validate its requirement and any source digest
 against that bound revision; it MUST NOT substitute live highest-version
 selection. A nested plan's digest pins its unresolved bytes, not its resolved
 view or transitive sources. WoT-complete publication follows the
-[closure and acceptance contract](../td-versioned-references/spec.md#9-publication-and-registry-mappings).
+[publication model and acceptance contract](../td-versioned-references/spec.md#2-publication-model).
 
 ## 5. Selection
 

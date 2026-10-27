@@ -1,4 +1,4 @@
-# Versioned References between WoT Documents
+# WoT Publications and Versioned References
 
 > **Status:** Working draft for discussion. This document is a proposal, not a W3C specification.
 >
@@ -6,19 +6,31 @@
 
 ## Abstract
 
-A versioned reference to a Thing Model (TM) or Thing Description (TD) separates the target's identity, revision order, compatibility requirement, and exact selection. This proposal retains SemVer floors and adds a distinct incremental contract: a reference selects a declared compatibility line and can require a minimum integer revision. The target's provider declares the profile; the resolver does not infer it from a version string. Publication snapshots bind dependencies exactly, but composition still checks compatibility. Consumer-owned pins and publication metadata stay outside authored references.
+Publish related Thing Models (TMs) and Thing Descriptions (TDs) as a complete immutable snapshot, then expose that snapshot through a named channel. A consumer opens the channel once and interprets every dependency through the snapshot's exact bindings. Publishing a later snapshot does not change an operation already using an earlier one.
+
+This proposal defines WoT dependency closure and compatibility acceptance within that publication flow, independently of the registry or transport publishing it. SemVer floors and incremental compatibility lines constrain acceptance of bound revisions; they do not choose another revision from outside the snapshot. Standalone live resolution and raw exact replay remain separate operations. The proposal does not define a publication API or manifest format.
 
 ## 1. Scope and conformance
 
 The key words MUST, MUST NOT, REQUIRED, SHALL, SHALL NOT, SHOULD, SHOULD NOT, RECOMMENDED, NOT RECOMMENDED, MAY, and OPTIONAL in this document are to be interpreted as described in [BCP 14](https://www.rfc-editor.org/info/bcp14), comprising RFC 2119 and RFC 8174, when, and only when, they appear in all capitals.
 
-The proposed requirements apply to authors of versioned TM and TD references, publishers that assign document versions, and version-aware resolvers. Ordinary processors that do not implement this proposal are outside its conformance scope. A processor claiming constrained-resolution support MUST either satisfy every applicable profile-specific requirement or report an error; it MUST NOT report unconstrained retrieval as successful constrained resolution. Raw exact retrieval is a separate operation.
+The proposed requirements apply to authors of versioned TM and TD references, publishers of WoT-complete snapshots, publication consumers, and version-aware resolvers. Ordinary processors that do not implement this proposal are outside its conformance scope. A processor claiming constrained-resolution support MUST either satisfy every applicable profile-specific requirement or report an error; it MUST NOT report unconstrained retrieval as successful constrained resolution. Raw exact retrieval is a separate operation.
 
 The proposal covers `tm:extends`, `tm:submodel`, ordinary `tm:ref`, and TD links whose `rel` is `type`, as well as TD-to-TD `td:extends`, `td:subthing`, and ordinary `td:ref`. Projection source-manifest entries use the same target-profile contract. It does not define requirements for other TD links, registry storage, a discovery protocol, a publication API or format, or a new TD/TM media type. Version selection chooses the target document; existing composition, inheritance, JSON Pointer, and target-kind rules continue to govern its use.
 
 This proposal leaves the TD 1.1 `Link` model and link serialization unchanged ([Sections 5.3.4.1](https://www.w3.org/TR/wot-thing-description11/#link) and [6.3.8](https://www.w3.org/TR/wot-thing-description11/#link-serialization-json)). The existing `VersionInfo` model and `version` serialization also remain unchanged ([Sections 5.3.1.6](https://www.w3.org/TR/wot-thing-description11/#versioninfo) and [6.3.3](https://www.w3.org/TR/wot-thing-description11/#version-serialization-json)). TM versioning, extension and import, and composition remain defined by [Sections 9.3.1](https://www.w3.org/TR/wot-thing-description11/#thing-model-versioning), [9.3.2](https://www.w3.org/TR/wot-thing-description11/#thing-model-extension-import), and [9.3.3](https://www.w3.org/TR/wot-thing-description11/#thing-model-composition). The separate [TD Composition and Reuse proposal](../td-composition/spec.md) defines the `td:extends`, `td:subthing`, and `td:ref` operators; this proposal defines version selection for their targets.
 
-## 2. Terminology
+Section 2 describes the primary publication and consumption flow. Sections 3–5 define the reference requirements checked against a snapshot's bound targets. Section 6 covers the distinct live-selection and raw-replay paths. Section 9 maps these contracts to xRegistry without making its publication protocol a WoT requirement.
+
+<a id="2-terminology"></a>
+
+## 2. Publication model
+
+**Snapshot:** An immutable publication set fixing document revisions, relevant metadata, original reference bases, contexts, and exact dependency bindings.
+
+**Channel:** A scoped mutable name selecting a snapshot. Its name does not assert compatibility.
+
+**Dependency binding:** An association from one external reference occurrence in an exact source revision to an exact target revision within the snapshot.
 
 **Target identifier:** The stable `id` of the referenced TM or TD. In the SemVer profile, a TM identifier names a compatibility major. An incremental TM can retain its identifier across compatibility lines. A TD identifier names a concrete Thing.
 
@@ -32,15 +44,69 @@ This proposal leaves the TD 1.1 `Link` model and link serialization unchanged ([
 
 **Resolution record:** Consumer- or resolver-owned output identifying the target, selected revision, exact-byte digest, origin and applicable profile and line expectations. Retaining the record allows verification of a later replay.
 
-**Snapshot:** An immutable publication set fixing document revisions, relevant metadata, original reference bases, contexts, and exact dependency bindings.
+<a id="9-publication-and-registry-mappings"></a>
 
-**Channel:** A scoped mutable name selecting a snapshot. Its name does not assert compatibility.
+### 2.1 Publishing and consuming a set
 
-A version-aware resolver MAY use a registry, a local model catalog, or another source of candidates. How it discovers candidates or maps a retrieval URI to a target identifier is outside this proposal. It MUST establish the target identity and one authoritative source sequence before comparing revisions. It MUST NOT combine candidates with different `id` values or independent incremental sequences merely because their authored identifiers match.
+The primary publication flow exchanges a complete set, not a request to find the newest revision independently for every reference. The publisher prepares exact dependency bindings before making a snapshot visible. The consumer follows the channel to that snapshot and uses those bindings throughout the operation.
 
-The provider MUST declare the profile for its candidate set through an established endpoint or catalog contract. A legacy provider supporting only this proposal's SemVer rules MAY omit that declaration; absence means SemVer only under that legacy contract. An unknown or unavailable profile MUST fail version-aware resolution. A processor MUST NOT infer a profile from integer-looking content or switch profiles per document. Profile provisioning and revision allocation are provider responsibilities, not WoT document syntax.
+1. The publisher starts from a retained snapshot or a captured source release, publishes changed document revisions and reuses unchanged ones.
+2. The publisher resolves recognized dependencies, records their exact occurrence bindings, and validates the complete set under Sections 2.2 and 2.3.
+3. The publication mechanism persists the immutable snapshot and necessary content, then conditionally advances the channel under Section 2.4.
+4. The consumer opens that channel once, retains the selected snapshot context, and obtains entries and dependencies from it.
+5. The consumer validates each bound target against the source reference and its own acceptance policy before applying the existing composition operator.
+
+For example, `preview` points to snapshot S12, containing entry E with its dependency bound to revision 42 in compatibility line A. A publisher prepares S13, reusing unchanged documents and binding E to revision 44/A. Only after validating and retaining S13 does it conditionally move `preview`. A reader already on S12 continues using 42/A; a new open selects S13 and evaluates 44/A. Promotion can point `stable` at that same reviewed S13 without allocating another document revision.
+
+The channel chooses which publication to evaluate. The snapshot's binding chooses the exact dependency revision. A floor or compatibility line determines whether that revision is acceptable; it does not redirect the consumer to a newer live candidate. If S13 instead binds the dependency to 43/B while E requires A, composition fails.
+
+| Operation | Selection authority | Requirement handling |
+| --- | --- | --- |
+| Open a channel and compose | One selected snapshot and its exact dependency bindings | Validate each bound target; no live or older-snapshot fallback |
+| Standalone live resolution | The selected provider sequence and its sticky-default or highest-eligible rules | Use the requirements to select a candidate under Section 6.1 |
+| Raw exact replay | The caller's source-scoped revision or digest pin | Verify identity, bytes and recorded expectations under Section 6.2; do not claim compatibility-checked composition |
+
+Channels and snapshots do not require new channel members in authored TD/TM references. The caller supplies the publication context through its publication mechanism; authored target identifiers and reference requirements remain portable.
+
+<a id="91-publication-sets-and-dependency-closure"></a>
+
+### 2.2 Publication sets and dependency closure
+
+Publishing one changed document does not require assigning new revisions to every document in a release. A publisher can reuse unchanged revisions and capture a complete set in a new snapshot. A source standard's release or a server's model revision is capture provenance, not automatically a document revision or snapshot identity.
+
+A WoT-complete publication MUST retain entry documents, their reachable recognized TM/TD dependencies, exact bytes and fixed metadata, original reference bases, and the context material needed to interpret them. Contexts MUST be retained immutably or supplied through an explicitly supported immutable context set. Merely caching documents or declaring generic registry completeness does not establish WoT dependency closure.
+
+The publisher MUST independently enumerate external reference occurrences from the source bytes and their captured contexts. Recognized references are TM extension/submodel/ordinary-reference operators, TD composition/ordinary-reference operators, TD type links and projection-source entries. A projection selector uses its declared, bound manifest source; it does not create an independent target-selection occurrence merely by using `tm:ref` or `td:ref`. Interaction endpoints, documentation URLs and opaque extension data are not dependencies merely because they contain URIs.
+
+Each recognized external occurrence MUST have exactly one binding to an exact target revision in the captured set. Its key is the source revision plus reference location, not only the target's authored identifier. The binding MUST preserve the authored operator and reference string, including its fragment. With RFC 6901 locations, a link occurrence identifies the link object, an ordinary reference identifies the object containing `tm:ref` or `td:ref`, and a projection source identifies its manifest entry. Two occurrences can bind the same logical target to different revisions.
+
+The publication validator MUST verify the binding against the actual source bytes, target identity, expected kind, original base, and fragment. Bindings MUST cover the complete reachable closure without duplicate, missing, invented or unreachable edges. Local fragment references stay within their source revision and need no external binding. Traversal MUST be bounded; cycle acceptance follows the existing operator's rules, including rejection of cyclic projection plans.
+
+This section defines the required interpretation, not a WoT manifest serialization, signature scheme or lockfile. A publication mechanism must supply an unambiguous binding representation and signal mandatory closure semantics. A consumer requesting WoT-complete interpretation MUST reject absent or unsupported closure information.
+
+<a id="92-exact-selection-is-not-compatibility-acceptance"></a>
+
+### 2.3 Exact selection and compatibility acceptance
+
+A consumer opening a channel MUST select one snapshot for the operation and retain that context for all document, dependency and collection-page reads. Refresh is a new open operation. Missing content MUST fail; it MUST NOT trigger live highest-version resolution, an older-snapshot search or reopening a changed channel.
+
+Snapshot-bound composition selects the bound exact target first, then MUST validate the authored requirement and caller acceptance policy against it. Incremental targets require the line and any numeric floor. SemVer targets retain effective floors, TD major caps and prerelease eligibility. A captured sticky default governs raw retrieval in that snapshot, not an explicit dependency binding. The raw pin bypass in Section 6.2 MUST NOT be used to waive snapshot compatibility acceptance.
+
+<a id="93-lifecycle-offline-replay-and-federation"></a>
+
+### 2.4 Lifecycle, offline replay and federation
+
+The publication mechanism MUST validate and retain a complete immutable snapshot before exposing it through a channel head. A head update MUST be conditional on the observed channel state; a stale update fails rather than overwriting another publisher. Forking can share a snapshot, promotion can select the already reviewed snapshot, and rollback can restore an earlier snapshot without renumbering documents. Existing readers remain on their selected contexts. A timeout leaves the update outcome unknown until reconciled with authoritative state; it is not permission to repeat anonymous uploads.
+
+Offline replay requires the checked snapshot description, metadata, contexts, dependency bindings and exact bytes. Missing, corrupt or untrusted required material MUST fail without network fallback. Retention and authorization remain deployment policy; deletion or revocation can make an old pin unavailable and MUST NOT cause silent substitution.
+
+A federated provider MUST establish the owning source sequence before domain revision selection. Under xRegistry's informative mapping, local/ordered precedence selects a whole Resource and its Versions; a missing Version, compatibility failure or denied access cannot be repaired from a lower-priority source. Multiple source pins alone do not reproduce the combined view: the interpreted model and exact composition policy must also be retained, or the producer must materialize a complete combined snapshot.
+
+Independent source captures are not a simultaneous capture. A publisher claiming source-wide consistency MUST retain evidence of the source's capture guarantee; immutable output alone is insufficient. Original domain reference bases MUST survive relocation, independently of storage paths or catalog URLs.
 
 ## 3. Vocabulary and JSON-LD context
+
+The following requirements describe what a consumer checks against a snapshot's exact dependency targets and what a publisher or standalone live resolver uses when choosing those targets. They do not replace the publication selection in Section 2.
 
 The proposed SemVer term `tm:minVersion` uses the Thing Model namespace `https://www.w3.org/2019/wot/tm#`; `td:minVersion` uses the Thing Description namespace `https://www.w3.org/2019/wot/td#`. Both are string-valued members, not IRI-valued references, and both use the same syntax: a valid [SemVer 2.0.0](https://semver.org/spec/v2.0.0.html) version without build metadata. For example, `1.2.0` and `1.3.0-rc.1` are valid; `1.2`, `v1.2.0`, `^1.2.0`, `>=1.2.0`, and `1.2.0+build.7` are invalid. SemVer's numeric and prerelease identifier rules, including the restrictions on leading zeroes, apply. The provider-generated bookkeeping form `0.0.0-N` MUST NOT be used as a floor, even if the corresponding revision is absent. Registry-specific identifier length limits are not WoT vocabulary constraints.
 
@@ -115,6 +181,10 @@ A processor implementing this mapping MUST normalize one accepted spelling into 
 
 ## 4. Model identity and compatibility
 
+A version-aware resolver MAY use a registry, a local model catalog, or another source of candidates. How it discovers candidates or maps a retrieval URI to a target identifier is outside this proposal. It MUST establish the target identity and one authoritative source sequence before comparing revisions. It MUST NOT combine candidates with different `id` values or independent incremental sequences merely because their authored identifiers match.
+
+The provider MUST declare the profile for its candidate set through an established endpoint or catalog contract. A legacy provider supporting only this proposal's SemVer rules MAY omit that declaration; absence means SemVer only under that legacy contract. An unknown or unavailable profile MUST fail version-aware resolution. A processor MUST NOT infer a profile from integer-looking content or switch profiles per document. Profile provisioning and revision allocation are provider responsibilities, not WoT document syntax.
+
 ### 4.1 SemVer profile
 
 A TM author MUST use a new `id` for a breaking change, including a change that makes an earlier version's valid use incompatible. All versions published under one TM `id` MUST be backward compatible with earlier versions under that identifier. The major compatibility line belongs in the identifier; an identifier such as `urn:example:pump:v1` distinguishes it from `urn:example:pump:v2`. This proposal does not prescribe an identifier syntax or require a literal `v1` suffix.
@@ -123,7 +193,7 @@ A TM's authored SemVer major-version change MUST use a new `id`. Minor and patch
 
 For a TD, `id` identifies a concrete Thing and does not carry a compatibility major. A breaking revision therefore retains the TD `id` and advances the major component of `version.instance`. The TD's `version.model` remains the implicit floor only for its `rel: "type"` TM link; it does not provide an implicit floor for TD-to-TD references.
 
-An authored version used for SemVer comparison MUST satisfy Section 3's syntax. A provider MAY explicitly support generated SemVer bookkeeping revisions for unchanged documents lacking an authored SemVer version. Such revisions are prereleases, not authored compatibility promises, and cannot be floors. They require prerelease opt-in, a raw pin or a sticky default to be selected. A resolver MUST NOT invent a candidate version when the provider supplies neither a valid authored version nor an explicitly supported generated revision. Assignment syntax and storage lineage belong to the provider profile; Section 9.4 describes xRegistry's mapping.
+An authored version used for SemVer comparison MUST satisfy Section 3's syntax. A provider MAY explicitly support generated SemVer bookkeeping revisions for unchanged documents lacking an authored SemVer version. Such revisions are prereleases, not authored compatibility promises, and cannot be floors. They require prerelease opt-in, a raw pin or a sticky default to be selected. A resolver MUST NOT invent a candidate version when the provider supplies neither a valid authored version nor an explicitly supported generated revision. Assignment syntax and storage lineage belong to the provider profile; Section 9 describes xRegistry's mapping.
 
 An authored TM version comes from `version.model`; an authored TD version comes from `version.instance`. A TD's `version.model` supplies a floor only for its `rel: "type"` SemVer TM link. Apart from explicitly supported generated bookkeeping revisions, an internal storage label does not supply a SemVer candidate version. A version number is an author's compatibility claim, not evidence of compatibility or document authenticity. Authors SHOULD validate compatibility before publication.
 
@@ -229,6 +299,8 @@ The same requirements can qualify TM operators, TD type links, ordinary referenc
 
 ## 6. Resolution semantics
 
+Publication consumers use the exact-binding and acceptance flow in Section 2. This section defines standalone live selection and raw exact replay; neither is a fallback for missing or incompatible snapshot content.
+
 ### 6.1 Selection
 
 For standalone live resolution, a resolver MUST apply these steps in order:
@@ -255,7 +327,7 @@ A raw exact retrieval selects a revision by its source-scoped revision identifie
 
 A bare digest can match identical bytes in several revisions or lines. The resolver MUST select the highest matching revision under the known profile; that result pins bytes, not a particular line membership. To replay a particular publication, the consumer uses its revision identifier and verifies its retained digest and metadata expectations. A richer stored record does not require an API to accept both revision and digest selectors; xRegistry currently accepts at most one selector kind per request.
 
-To select newer candidates, the consumer performs a new unpinned resolution and retains a new record. Refresh and deployment activation are separate caller operations. Snapshot-bound composition instead follows Section 9.2: an exact binding fixes the candidate but does not bypass compatibility acceptance.
+For standalone live resolution, the consumer selects newer candidates through a new unpinned resolution and retains a new record. A publication consumer instead opens the channel again to evaluate its newly selected snapshot. Refresh and deployment activation are separate caller operations. Snapshot-bound composition follows Section 2.3: an exact binding fixes the candidate but does not bypass compatibility acceptance.
 
 The resolver's selected version and digest MUST NOT be written into the authored WoT document as a pin for these references. A resolver MUST NOT replace the floor with the selected version or rewrite the target to a registry-specific revision identifier. Keeping the authored requirement separate from the resolution result allows the document to be used across catalogs and registries.
 
@@ -328,41 +400,9 @@ If a resolver is given both a projection source requirement and `wotproj:sourceD
 
 When a publication snapshot binds a projection source, the processor MUST use that exact binding and validate the source requirement and any authored digest. The digest of a nested plan does not pin the resolved view. Publication closure must cover its reachable source dependencies, with the projection proposal's acyclic-plan rule unchanged.
 
-## 9. Publication and registry mappings
+<a id="94-xregistry-mapping-informative"></a>
 
-### 9.1 Publication sets and dependency closure
-
-Publishing one changed document does not require assigning new revisions to every document in a release. A publisher can reuse unchanged revisions and capture a complete set in a new snapshot. A source standard's release or a server's model revision is capture provenance, not automatically a document revision or snapshot identity.
-
-A WoT-complete publication MUST retain entry documents, their reachable recognized TM/TD dependencies, exact bytes and fixed metadata, original reference bases, and the context material needed to interpret them. Contexts MUST be retained immutably or supplied through an explicitly supported immutable context set. Merely caching documents or declaring generic registry completeness does not establish WoT dependency closure.
-
-The publisher MUST independently enumerate external reference occurrences from the source bytes and their captured contexts. Recognized references are TM extension/submodel/ordinary-reference operators, TD composition/ordinary-reference operators, TD type links and projection-source entries. A projection selector uses its declared, bound manifest source; it does not create an independent target-selection occurrence merely by using `tm:ref` or `td:ref`. Interaction endpoints, documentation URLs and opaque extension data are not dependencies merely because they contain URIs.
-
-Each recognized external occurrence MUST have exactly one binding to an exact target revision in the captured set. Its key is the source revision plus reference location, not only the target's authored identifier. The binding MUST preserve the authored operator and reference string, including its fragment. With RFC 6901 locations, a link occurrence identifies the link object, an ordinary reference identifies the object containing `tm:ref` or `td:ref`, and a projection source identifies its manifest entry. Two occurrences can bind the same logical target to different revisions.
-
-The publication validator MUST verify the binding against the actual source bytes, target identity, expected kind, original base, and fragment. Bindings MUST cover the complete reachable closure without duplicate, missing, invented or unreachable edges. Local fragment references stay within their source revision and need no external binding. Traversal MUST be bounded; cycle acceptance follows the existing operator's rules, including rejection of cyclic projection plans.
-
-This section defines the required interpretation, not a WoT manifest serialization, signature scheme or lockfile. A publication mechanism must supply an unambiguous binding representation and signal mandatory closure semantics. A consumer requesting WoT-complete interpretation MUST reject absent or unsupported closure information.
-
-### 9.2 Exact selection is not compatibility acceptance
-
-A consumer opening a channel MUST select one snapshot for the operation and retain that context for all document, dependency and collection-page reads. Refresh is a new open operation. Missing content MUST fail; it MUST NOT trigger live highest-version resolution, an older-snapshot search or reopening a changed channel.
-
-Snapshot-bound composition selects the bound exact target first, then MUST validate the authored requirement and caller acceptance policy against it. Incremental targets require the line and any numeric floor. SemVer targets retain effective floors, TD major caps and prerelease eligibility. A captured sticky default governs raw retrieval in that snapshot, not an explicit dependency binding. The raw pin bypass in Section 6.2 MUST NOT be used to waive snapshot compatibility acceptance.
-
-For example, snapshot S12 binds a line-A dependency to revision 42. A later revision 43/B does not change S12. If channel `preview` moves to S13 with that dependency bound to 43/B, a consumer requiring A rejects S13. It does not silently select 42 from S12 or a newer live line-A revision.
-
-### 9.3 Lifecycle, offline replay and federation
-
-The publication mechanism MUST validate and retain a complete immutable snapshot before exposing it through a channel head. A head update MUST be conditional on the observed channel state; a stale update fails rather than overwriting another publisher. Forking can share a snapshot, promotion can select the already reviewed snapshot, and rollback can restore an earlier snapshot without renumbering documents. Existing readers remain on their selected contexts. A timeout leaves the update outcome unknown until reconciled with authoritative state; it is not permission to repeat anonymous uploads.
-
-Offline replay requires the checked snapshot description, metadata, contexts, dependency bindings and exact bytes. Missing, corrupt or untrusted required material MUST fail without network fallback. Retention and authorization remain deployment policy; deletion or revocation can make an old pin unavailable and MUST NOT cause silent substitution.
-
-A federated provider MUST establish the owning source sequence before domain revision selection. Under xRegistry's informative mapping, local/ordered precedence selects a whole Resource and its Versions; a missing Version, compatibility failure or denied access cannot be repaired from a lower-priority source. Multiple source pins alone do not reproduce the combined view: the interpreted model and exact composition policy must also be retained, or the producer must materialize a complete combined snapshot.
-
-Independent source captures are not a simultaneous capture. A publisher claiming source-wide consistency MUST retain evidence of the source's capture guarantee; immutable output alone is insufficient. Original domain reference bases MUST survive relocation, independently of storage paths or catalog URLs.
-
-### 9.4 xRegistry mapping (informative)
+## 9. xRegistry mapping (informative)
 
 The current [xRegistry WoT specification][xRegistry WoT] and [decision record][xRegistry decisions] define the SemVer baseline. Its [versioning design][xRegistry versioning] and [overview][xRegistry overview] propose the additional incremental profile; they do not replace that baseline specification or demonstrate runtime support. The [WoT publication companion][xRegistry WoT publication] is an informative closure design, while the separate [generic publication working draft][xRegistry publication] defines xRegistry-specific manifests, channels, conditional updates and access contexts. All remain unreleased drafts.
 
