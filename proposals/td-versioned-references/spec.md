@@ -76,7 +76,15 @@ Publishing one changed document does not require assigning new revisions to ever
 
 A WoT-complete publication MUST retain entry documents, their reachable recognized TM/TD dependencies, exact bytes and fixed metadata, original reference bases, and the context material needed to interpret them. Contexts MUST be retained immutably or supplied through an explicitly supported immutable context set. Merely caching documents or declaring generic registry completeness does not establish WoT dependency closure.
 
-The publisher MUST independently enumerate external reference occurrences from the source bytes and their captured contexts. Recognized references are TM extension/submodel/ordinary-reference operators, TD composition/ordinary-reference operators, TD type links and projection-source entries. A projection selector uses its declared, bound manifest source; it does not create an independent target-selection occurrence merely by using `tm:ref`. Interaction endpoints, documentation URLs and opaque extension data are not dependencies merely because they contain URIs.
+The publisher MUST independently enumerate external reference occurrences from
+the source bytes and their captured contexts. Recognized references are TM
+`tm:extends`, `tm:submodel` and ordinary `tm:ref` operators; TD `td:extends`,
+`td:subthing`, ordinary `td:ref` and `rel: "type"` links; and projection-source
+entries. A Projection Plans selector uses `tm:ref` in both TD and TM envelopes
+to select within its declared, bound manifest source; it does not create an
+independent target-selection occurrence. An ordinary external `td:ref` remains
+a recognized TD dependency. Interaction endpoints, documentation URLs and
+opaque extension data are not dependencies merely because they contain URIs.
 
 Each recognized external occurrence MUST have exactly one binding to an exact target revision in the captured set. Its key is the source revision plus reference location, not only the target's authored identifier. The binding MUST preserve the authored operator and reference string, including its fragment. With RFC 6901 locations, a link occurrence identifies the link object, an ordinary reference identifies the object containing `tm:ref` or `td:ref`, and a projection source identifies its manifest entry. Two occurrences can bind the same logical target to different revisions.
 
@@ -432,13 +440,13 @@ The SemVer floor terms remain provisional. Incremental requirements use the OPC 
 
 Live selection depends on a provider contract that exposes trusted profile, sequence and sticky-default metadata. Snapshot-bound composition uses the exact bindings and fixed metadata in the selected snapshot. This proposal defines neither a provider-discovery mechanism nor a publication API or manifest format. Independent implementation evidence is still required for compatibility checks, closure discovery, snapshot acceptance and offline replay; examples and schema checks do not establish those behaviors.
 
-The source references below pin the xRegistry PR head reviewed for this alignment, `854386a446d7213d39c79303a0f305a002a2ddf6` from [xregistry/spec#571](https://github.com/xregistry/spec/pull/571). A later editorial or design revision requires another comparison; the linked design prose is not normative W3C authority.
+The source references below pin the xRegistry PR head reviewed for this alignment, `2e3d81690191439212fb0fc415e58afbcc1c0f0b` from [xregistry/spec#571](https://github.com/xregistry/spec/pull/571). A later editorial or design revision requires another comparison; the linked design prose is not normative W3C authority.
 
-[xRegistry WoT]: https://github.com/marcschier/xregistry-drafts/blob/854386a446d7213d39c79303a0f305a002a2ddf6/workingdrafts/models/wot/spec.md
-[xRegistry decisions]: https://github.com/marcschier/xregistry-drafts/blob/854386a446d7213d39c79303a0f305a002a2ddf6/workingdrafts/models/wot/decisions.md
-[xRegistry versioning]: https://github.com/marcschier/xregistry-drafts/blob/854386a446d7213d39c79303a0f305a002a2ddf6/workingdrafts/publication/design/design.md#wot-versioning-design-and-operating-workflows
-[xRegistry overview]: https://github.com/marcschier/xregistry-drafts/blob/854386a446d7213d39c79303a0f305a002a2ddf6/workingdrafts/publication/design/design.md#wot-versioning-design-overview
-[xRegistry WoT publication]: https://github.com/marcschier/xregistry-drafts/blob/854386a446d7213d39c79303a0f305a002a2ddf6/workingdrafts/publication/design/design.md#wot-channels-snapshots-and-dependency-bindings
-[xRegistry publication]: https://github.com/marcschier/xregistry-drafts/blob/854386a446d7213d39c79303a0f305a002a2ddf6/workingdrafts/publication/spec.md
-[xRegistry federation]: https://github.com/marcschier/xregistry-drafts/blob/854386a446d7213d39c79303a0f305a002a2ddf6/workingdrafts/federation/spec.md
-[xRegistry HTTP]: https://github.com/marcschier/xregistry-drafts/blob/854386a446d7213d39c79303a0f305a002a2ddf6/workingdrafts/bindings/http-federation.md
+[xRegistry WoT]: https://github.com/marcschier/xregistry-drafts/blob/2e3d81690191439212fb0fc415e58afbcc1c0f0b/workingdrafts/models/wot/spec.md
+[xRegistry decisions]: https://github.com/marcschier/xregistry-drafts/blob/2e3d81690191439212fb0fc415e58afbcc1c0f0b/workingdrafts/models/wot/decisions.md
+[xRegistry versioning]: https://github.com/marcschier/xregistry-drafts/blob/2e3d81690191439212fb0fc415e58afbcc1c0f0b/workingdrafts/publication/design/design.md#wot-versioning-design-and-operating-workflows
+[xRegistry overview]: https://github.com/marcschier/xregistry-drafts/blob/2e3d81690191439212fb0fc415e58afbcc1c0f0b/workingdrafts/publication/design/design.md#wot-versioning-design-overview
+[xRegistry WoT publication]: https://github.com/marcschier/xregistry-drafts/blob/2e3d81690191439212fb0fc415e58afbcc1c0f0b/workingdrafts/publication/design/design.md#wot-channels-snapshots-and-dependency-bindings
+[xRegistry publication]: https://github.com/marcschier/xregistry-drafts/blob/2e3d81690191439212fb0fc415e58afbcc1c0f0b/workingdrafts/publication/spec.md
+[xRegistry federation]: https://github.com/marcschier/xregistry-drafts/blob/2e3d81690191439212fb0fc415e58afbcc1c0f0b/workingdrafts/federation/spec.md
+[xRegistry HTTP]: https://github.com/marcschier/xregistry-drafts/blob/2e3d81690191439212fb0fc415e58afbcc1c0f0b/workingdrafts/bindings/http-federation.md
