@@ -2,7 +2,7 @@
 
 > **Status:** Working draft for discussion. This document is a proposal, not a W3C specification.
 >
-> `tm:minVersion`, `td:minVersion`, and the processing rules below are provisional. Core WoT term names for incremental requirements remain open. Normative terms state the proposed requirements; they do not imply Working Group adoption.
+> `tm:minVersion`, `td:minVersion`, and the processing rules below are provisional. This proposal defines no core WoT terms for incremental requirements; Section 3.1 gives an OPC UA deployment mapping. Normative terms state proposed requirements and do not imply Working Group adoption.
 
 ## Abstract
 
@@ -80,17 +80,17 @@ The publisher MUST independently enumerate external reference occurrences from t
 
 Each recognized external occurrence MUST have exactly one binding to an exact target revision in the captured set. Its key is the source revision plus reference location, not only the target's authored identifier. The binding MUST preserve the authored operator and reference string, including its fragment. With RFC 6901 locations, a link occurrence identifies the link object, an ordinary reference identifies the object containing `tm:ref` or `td:ref`, and a projection source identifies its manifest entry. Two occurrences can bind the same logical target to different revisions.
 
-The publication validator MUST verify the binding against the actual source bytes, target identity, expected kind, original base, and fragment. Bindings MUST cover the complete reachable closure without duplicate, missing, invented or unreachable edges. Local fragment references stay within their source revision and need no external binding. Traversal MUST be bounded; cycle acceptance follows the existing operator's rules, including rejection of cyclic projection plans.
+The publication validator MUST verify the binding against the actual source bytes, target identity, expected kind, original base, and fragment. Bindings MUST cover the complete reachable closure without duplicate, missing, invented or unreachable edges. A reference is document-local when its URI-reference resolves against the source document's base URI to that document before its fragment is applied. Local fragment references stay within their source revision and need no external binding. Traversal MUST be bounded; cycle acceptance follows the existing operator's rules, including rejection of cyclic projection plans.
 
-This section defines the required interpretation, not a WoT manifest serialization, signature scheme or lockfile. A publication mechanism must supply an unambiguous binding representation and signal mandatory closure semantics. A consumer requesting WoT-complete interpretation MUST reject absent or unsupported closure information.
+This section defines the required interpretation, not a WoT manifest serialization, signature scheme or lockfile. A publication mechanism must supply an unambiguous binding representation and signal mandatory closure semantics. A consumer requesting WoT-complete interpretation MUST reject absent or unsupported closure information as `closure-incomplete`. Conflicting trusted declarations, or different bytes or fixed metadata claiming the same source revision, MUST fail as `inconsistent-publication`.
 
 <a id="92-exact-selection-is-not-compatibility-acceptance"></a>
 
 ### 2.3 Exact selection and compatibility acceptance
 
-A consumer opening a channel MUST select one snapshot for the operation and retain that context for all document, dependency and collection-page reads. Refresh is a new open operation. Missing content MUST fail; it MUST NOT trigger live highest-version resolution, an older-snapshot search or reopening a changed channel.
+A consumer opening a channel MUST select one snapshot for the operation and retain that context for all document, dependency and collection-page reads. Refresh is a new open operation. Missing content MUST fail as `closure-incomplete`; it MUST NOT trigger live highest-version resolution, an older-snapshot search or reopening a changed channel.
 
-Snapshot-bound composition selects the bound exact target first, then MUST validate the authored requirement and caller acceptance policy against it. Incremental targets require the line and any numeric floor. SemVer targets retain effective floors, TD major caps and prerelease eligibility. A captured sticky default governs raw retrieval in that snapshot, not an explicit dependency binding. The raw pin bypass in Section 6.2 MUST NOT be used to waive snapshot compatibility acceptance.
+Snapshot-bound composition selects the bound exact target first, then MUST validate the authored requirement and caller acceptance policy against it. Incremental targets require the line and any numeric floor. SemVer targets retain effective floors, TD major caps and prerelease eligibility. A bound target that fails an authored requirement or caller policy MUST fail as `unsatisfied`. A captured sticky default governs raw retrieval in that snapshot, not an explicit dependency binding. The raw pin bypass in Section 6.2 MUST NOT be used to waive snapshot compatibility acceptance.
 
 <a id="93-lifecycle-offline-replay-and-federation"></a>
 
@@ -98,7 +98,7 @@ Snapshot-bound composition selects the bound exact target first, then MUST valid
 
 The publication mechanism MUST validate and retain a complete immutable snapshot before exposing it through a channel head. A head update MUST be conditional on the observed channel state; a stale update fails rather than overwriting another publisher. Forking can share a snapshot, promotion can select the already reviewed snapshot, and rollback can restore an earlier snapshot without renumbering documents. Existing readers remain on their selected contexts. A timeout leaves the update outcome unknown until reconciled with authoritative state; it is not permission to repeat anonymous uploads.
 
-Offline replay requires the checked snapshot description, metadata, contexts, dependency bindings and exact bytes. Missing, corrupt or untrusted required material MUST fail without network fallback. Retention and authorization remain deployment policy; deletion or revocation can make an old pin unavailable and MUST NOT cause silent substitution.
+Offline replay requires the checked snapshot description, metadata, contexts, dependency bindings and exact bytes. Missing required closure material MUST fail as `closure-incomplete`; corrupt or untrusted material MUST fail without network fallback. Retention and authorization remain deployment policy; deletion or revocation can make an old pin unavailable and MUST NOT cause silent substitution.
 
 A federated provider MUST establish the owning source sequence before domain revision selection. Under xRegistry's informative mapping, local/ordered precedence selects a whole Resource and its Versions; a missing Version, compatibility failure or denied access cannot be repaired from a lower-priority source. Multiple source pins alone do not reproduce the combined view: the interpreted model and exact composition policy must also be retained, or the producer must materialize a complete combined snapshot.
 
@@ -155,7 +155,7 @@ The context declares the term's mapping; it does not standardize the term or imp
 
 ### 3.1 Incremental requirements and deployment mapping
 
-The incremental contract requires a target compatibility-line selector and permits an integer floor at the same supported reference locations. Root line metadata declares the containing revision's line; reference-level metadata selects the target's line. The root declaration MUST NOT be inherited by dependencies. Core WoT names for these members remain an adoption question; this proposal does not invent a `tm:compatibilityLine` or `td:compatibilityLine` term.
+The incremental contract requires a target compatibility-line selector and permits an integer floor at the same supported reference locations. Root line metadata declares the containing revision's line; reference-level metadata selects the target's line. The root declaration MUST NOT be inherited by dependencies. This proposal defines no core WoT terms for these members; Section 3.1 gives an OPC UA deployment mapping and does not invent a `tm:compatibilityLine` or `td:compatibilityLine` term.
 
 The informative xRegistry design proposes this deployment mapping in the existing OPC UA WoT Binding namespace:
 
@@ -175,7 +175,7 @@ The informative xRegistry design proposes this deployment mapping in the existin
 }
 ```
 
-This is a proposed context excerpt, not a complete TD/TM context or evidence that a published context supports the terms. `uav:minVersion` serves either target kind. The existing operator, type link or source media type still determines TD versus TM. For a SemVer target it maps to the applicable SemVer floor; for an incremental target it maps to the numeric floor. `uav:compatibilityLine` is valid only for incremental selection or an incremental root declaration.
+This is a proposed context excerpt, not a complete TD/TM context or evidence that a published context supports the terms. `uav:minVersion` serves either target kind. The existing operator, type link or source media type still determines TD versus TM. For a SemVer target it maps to the applicable SemVer floor; for an incremental target it maps to the numeric floor. `uav:compatibilityLine` is valid only for incremental selection or an incremental root declaration. A malformed line URI, a line on a SemVer target, or a line at an unsupported location MUST fail as `invalid-line`.
 
 A processor implementing this mapping MUST normalize one accepted spelling into one requirement. A reference carrying both `uav:minVersion` and either legacy floor term MUST fail as `invalid-floor`, even if the values agree. The legacy terms retain their target-kind restrictions and MUST NOT be reinterpreted as integer floors. Authors MUST NOT duplicate composition or type links to carry alternate vocabulary spellings. Structural authoring validation is separate from the raw pin selection path in Section 6.
 
@@ -183,7 +183,7 @@ A processor implementing this mapping MUST normalize one accepted spelling into 
 
 A version-aware resolver MAY use a registry, a local model catalog, or another source of candidates. How it discovers candidates or maps a retrieval URI to a target identifier is outside this proposal. It MUST establish the target identity and one authoritative source sequence before comparing revisions. It MUST NOT combine candidates with different `id` values or independent incremental sequences merely because their authored identifiers match.
 
-The provider MUST declare the profile for its candidate set through an established endpoint or catalog contract. A legacy provider supporting only this proposal's SemVer rules MAY omit that declaration; absence means SemVer only under that legacy contract. An unknown or unavailable profile MUST fail version-aware resolution. A processor MUST NOT infer a profile from integer-looking content or switch profiles per document. Profile provisioning and revision allocation are provider responsibilities, not WoT document syntax.
+The provider MUST declare the profile for its candidate set through an established endpoint or catalog contract. A legacy provider supporting only this proposal's SemVer rules MAY omit that declaration; absence means SemVer only under that legacy contract. An unknown or unavailable profile MUST fail version-aware resolution as `unknown-profile`. A processor MUST NOT infer a profile from integer-looking content or switch profiles per document. Profile provisioning and revision allocation are provider responsibilities, not WoT document syntax.
 
 ### 4.1 SemVer profile
 
@@ -201,7 +201,7 @@ An authored TM version comes from `version.model`; an authored TD version comes 
 
 An incremental revision and floor MUST be canonical positive decimal strings matching `[1-9][0-9]*`. A resolver MUST compare them as integers without rounding or fixed-width overflow; decimal length followed by ordinal comparison is sufficient. The provider's revision, not the document's authored version label, supplies the ordering key.
 
-A publisher can supply unchanged bytes with an absent, integer, SemVer or free-form authored version. The provider MUST preserve those bytes and bind the assigned revision, profile, origin, exact digest and effective compatibility line through trusted metadata. If the bytes declare a root line and authorized publication metadata also declares one, the publisher MUST reject disagreement. Each revision fixes its line membership, including absence; changing that declaration requires another revision.
+A publisher can supply unchanged bytes with an absent, integer, SemVer or free-form authored version. The provider MUST preserve those bytes and bind the assigned revision, profile, origin, exact digest and effective compatibility line through trusted metadata. If the bytes declare a root line and authorized publication metadata also declares one, the publisher MUST reject disagreement as `inconsistent-publication`. Each revision fixes its line membership, including absence; changing that declaration requires another revision.
 
 A later revision in one line claims backward compatibility with every earlier revision in that line. A breaking change uses another line; the target's `id` can remain unchanged for either a TM or TD. Neither integer order, lineage nor the line label proves semantic compatibility. Publisher authorization and compatibility validation remain separate obligations.
 
@@ -245,6 +245,8 @@ A TD author MAY include `td:minVersion` on a `td:extends` or `td:subthing` link,
 
 A TD floor is a caret floor. For a floor `X.Y.Z`, the selected version MUST be greater than or equal to `X.Y.Z` and lower than `(X+1).0.0`; the major component is incremented for all values of X, including `0`. The cap excludes prereleases whose major is `X+1`. For example, `0.4.2` admits versions from `0.4.2` up to but not including `1.0.0`. A TD reference without a floor has no implicit lower or upper bound and MAY resolve across major versions. Neither the referencing TD's `version.instance` nor its `version.model` supplies a floor for a TD target. Prerelease eligibility follows Section 6.1.
 
+For a document-local `td:ref`, the target is the containing TD already being processed. If `td:minVersion` is present, the processor MUST check that TD's `version.instance` against the floor and the next-major cap. A missing authored version, or one below the floor or outside the cap, MUST fail as `unsatisfied`; an invalid authored version MUST fail as `invalid-version`. The processor MUST NOT substitute another version of the containing TD to satisfy a local reference.
+
 Assuming the context from Section 3, the following abbreviated JSON excerpts use `...` for unrelated members and are not standalone TD documents. A TD with one type link and `version.model: "2.3.0"` can also state a lower explicit floor; the effective floor remains `2.3.0`:
 
 ```json
@@ -282,7 +284,7 @@ An unpinned reference to an incremental TM or TD MUST explicitly select a compat
 
 Neither the referencing document's `version.model`, `version.instance` nor root line supplies a requirement for an incremental target. There is no SemVer major cap or prerelease filter. A line selector on a SemVer target, an invalid line URI, or a selector at an unsupported location MUST fail rather than be ignored.
 
-A malformed numeric floor MUST fail as `invalid-version`. Structural conflicts between accepted vocabulary forms MUST fail as `invalid-floor`. These names identify resolution outcomes, not a new protocol error envelope.
+A malformed numeric floor MUST fail as `invalid-version`. A floor without a line, or an unpinned incremental reference with neither a line nor a floor, MUST fail as `compatibility-required`. An invalid line URI, a line selector for a SemVer target, or a selector at an unsupported location MUST fail as `invalid-line`. Structural conflicts between accepted vocabulary forms MUST fail as `invalid-floor`. These names identify resolution outcomes, not a new protocol error envelope.
 
 The following abbreviated link uses the deployment mapping from Section 3.1, not proposed core WoT term names:
 
@@ -323,7 +325,7 @@ If no eligible candidate satisfies the requirements, resolution MUST fail. A res
 
 A successful resolution MUST return a record containing the target identifier, selected revision, a cryptographic digest of the selected document's exact bytes, and the source origin/sequence. The record MUST identify the applicable profile and effective line when incremental expectations apply. A consumer requiring reproducibility MUST retain the revision, digest and applicable metadata expectations. The digest algorithm and digest MUST be identified; SHA-256 is RECOMMENDED. The resolver MUST NOT canonicalize or transform the bytes before calculating an exact-bytes digest.
 
-A raw exact retrieval selects a revision by its source-scoped revision identifier or exact digest. It bypasses floor derivation, line selection, the TD major cap, prerelease filtering and sticky-default selection; it does not authorize identity, authorization, byte or recorded-metadata mismatches. Missing pinned content MUST fail without an unpinned fallback.
+A raw exact retrieval selects a revision by its source-scoped revision identifier or exact digest. It bypasses floor derivation, line selection, the TD major cap, prerelease filtering and sticky-default selection; it still requires the source identity, authorization, exact bytes and recorded metadata to match. Conflicting bytes or fixed metadata for one source revision MUST fail as `inconsistent-publication`. Missing pinned content MUST fail without an unpinned fallback.
 
 A bare digest can match identical bytes in several revisions or lines. The resolver MUST select the highest matching revision under the known profile; that result pins bytes, not a particular line membership. To replay a particular publication, the consumer uses its revision identifier and verifies its retained digest and metadata expectations. A richer stored record does not require an API to accept both revision and digest selectors; xRegistry currently accepts at most one selector kind per request.
 
@@ -424,19 +426,19 @@ Resolvers SHOULD enforce safe-fetching policies covering URI schemes, destinatio
 
 The [example guide](./examples/README.md) lists illustrative JSON-LD documents for SemVer floors and versions, incremental requirements, and model navigation. Example target IRIs identify externally supplied documents; the examples are not a candidate repository or an executable resolution service.
 
-Integrating these requirements into the specification requires vocabulary/context and validation changes, capability signalling, and independent implementation evidence. This proposal does not modify the base TD/TM context or schemas in this repository. The following remain open:
+This proposal does not modify the base TD/TM context or schemas in this repository. Section 1 sets a claim-based conformance boundary; this proposal defines no protocol for discovering whether a processor makes that claim.
 
-- Core WoT names and context mappings for incremental line declarations, selectors and floors; the `uav` mapping is a deployment proposal, not W3C adoption.
-- How processors signal support instead of ignoring requirements, and how providers expose trusted profile, sequence and sticky-default information across discovery mechanisms.
-- Evidence for compatibility claims, independent closure discovery, snapshot acceptance and offline replay across implementations.
+The SemVer floor terms remain provisional. Incremental requirements use the OPC UA deployment mapping in Section 3.1; this proposal defines no core WoT terms for them. W3C adoption requires a separate decision and corresponding vocabulary, context, schema and validation changes.
 
-The source references below pin the xRegistry PR head reviewed for this alignment, `26c500165a8b49266fa2c97122c203b96c0d2338` from [xregistry/spec#571](https://github.com/xregistry/spec/pull/571). A later editorial or design revision requires another comparison; the linked design prose is not normative W3C authority.
+Live selection depends on a provider contract that exposes trusted profile, sequence and sticky-default metadata. Snapshot-bound composition uses the exact bindings and fixed metadata in the selected snapshot. This proposal defines neither a provider-discovery mechanism nor a publication API or manifest format. Independent implementation evidence is still required for compatibility checks, closure discovery, snapshot acceptance and offline replay; examples and schema checks do not establish those behaviors.
 
-[xRegistry WoT]: https://github.com/marcschier/xregistry-drafts/blob/26c500165a8b49266fa2c97122c203b96c0d2338/workingdrafts/models/wot/spec.md
-[xRegistry decisions]: https://github.com/marcschier/xregistry-drafts/blob/26c500165a8b49266fa2c97122c203b96c0d2338/workingdrafts/models/wot/decisions.md
-[xRegistry versioning]: https://github.com/marcschier/xregistry-drafts/blob/26c500165a8b49266fa2c97122c203b96c0d2338/workingdrafts/models/wot/versioning-design.md
-[xRegistry overview]: https://github.com/marcschier/xregistry-drafts/blob/26c500165a8b49266fa2c97122c203b96c0d2338/workingdrafts/models/wot/versioning-design-summary.md
-[xRegistry WoT publication]: https://github.com/marcschier/xregistry-drafts/blob/26c500165a8b49266fa2c97122c203b96c0d2338/workingdrafts/models/wot/publication-design.md
-[xRegistry publication]: https://github.com/marcschier/xregistry-drafts/blob/26c500165a8b49266fa2c97122c203b96c0d2338/workingdrafts/publication/spec.md
-[xRegistry federation]: https://github.com/marcschier/xregistry-drafts/blob/26c500165a8b49266fa2c97122c203b96c0d2338/workingdrafts/federation/spec.md
-[xRegistry HTTP]: https://github.com/marcschier/xregistry-drafts/blob/26c500165a8b49266fa2c97122c203b96c0d2338/workingdrafts/bindings/http-federation.md
+The source references below pin the xRegistry PR head reviewed for this alignment, `854386a446d7213d39c79303a0f305a002a2ddf6` from [xregistry/spec#571](https://github.com/xregistry/spec/pull/571). A later editorial or design revision requires another comparison; the linked design prose is not normative W3C authority.
+
+[xRegistry WoT]: https://github.com/marcschier/xregistry-drafts/blob/854386a446d7213d39c79303a0f305a002a2ddf6/workingdrafts/models/wot/spec.md
+[xRegistry decisions]: https://github.com/marcschier/xregistry-drafts/blob/854386a446d7213d39c79303a0f305a002a2ddf6/workingdrafts/models/wot/decisions.md
+[xRegistry versioning]: https://github.com/marcschier/xregistry-drafts/blob/854386a446d7213d39c79303a0f305a002a2ddf6/workingdrafts/publication/design/design.md#wot-versioning-design-and-operating-workflows
+[xRegistry overview]: https://github.com/marcschier/xregistry-drafts/blob/854386a446d7213d39c79303a0f305a002a2ddf6/workingdrafts/publication/design/design.md#wot-versioning-design-overview
+[xRegistry WoT publication]: https://github.com/marcschier/xregistry-drafts/blob/854386a446d7213d39c79303a0f305a002a2ddf6/workingdrafts/publication/design/design.md#wot-channels-snapshots-and-dependency-bindings
+[xRegistry publication]: https://github.com/marcschier/xregistry-drafts/blob/854386a446d7213d39c79303a0f305a002a2ddf6/workingdrafts/publication/spec.md
+[xRegistry federation]: https://github.com/marcschier/xregistry-drafts/blob/854386a446d7213d39c79303a0f305a002a2ddf6/workingdrafts/federation/spec.md
+[xRegistry HTTP]: https://github.com/marcschier/xregistry-drafts/blob/854386a446d7213d39c79303a0f305a002a2ddf6/workingdrafts/bindings/http-federation.md
