@@ -88,12 +88,14 @@ do not supply source requirements. A source entry can also state how interaction
 are routed, pin the source bytes, select all affordances, apply a name prefix
 to bulk selections, or provide a bounded predicate.
 
-Explicit selectors use the proposed `td:ref` in TD envelopes and `tm:ref` in TM envelopes.
-The term follows the envelope kind, not the source kind. The
+Explicit selectors use the existing `tm:ref` in both TD and TM envelopes. The projection-plan
+format reuses this Thing Model term; using it in a TD envelope does not waive the TD forms
+requirement, which resolution satisfies. The
 [TD Composition and Reuse proposal](../td-composition/README.md) defines the proposed
-ordinary TD reference mechanism alongside `td:extends` and `td:subthing`; its terms are
-provisional. Projection selection across TD/TM sources remains a projection-specific feature,
-not permission for cross-kind ordinary composition.
+ordinary TD reference mechanism alongside `td:extends` and `td:subthing`; its `td:ref` is not
+a projection selector, and its terms are provisional. Projection selection across TD/TM
+sources remains a projection-specific feature, not permission for cross-kind ordinary
+composition.
 
 An affordance-map member is an imported selection only when its reference identifies a
 manifest source and points to an affordance in the corresponding map in that source. Such a
@@ -103,9 +105,9 @@ without a projection-selection reference is a local definition, validated accord
 normal rules for the envelope.
 
 Selection may be explicit, whole-source, or predicate-based. Predicates are limited to
-declared affordance categories, semantic identifiers, and types; they do not execute
-arbitrary expressions. The source manifest order and specified selection ordering make the
-result deterministic. Explicit selections precede bulk selections within a source. When
+affordance kinds and exact expanded `@type` membership; they do not execute arbitrary
+expressions or infer subclasses. The source manifest order and specified selection ordering
+make the result deterministic. Explicit selections precede bulk selections within a source. When
 multiple imported selections still collide, a defined stable order decides which selection
 is retained; a local definition then replaces an imported selection with the same view name.
 Processors should report displaced selections.
@@ -119,8 +121,10 @@ relocated to their resolved targets. Imported definitions retain source provenan
 definitions remain owned by the plan and receive no synthetic provenance.
 
 Permitted annotations can describe an imported affordance without redefining its schema.
-The plan may contribute titles, descriptions, semantic metadata, types, and—when routing
-interactions to the plan's endpoint—forms and security. Under source routing, forms and
+The plan may contribute titles, descriptions, additional `@type` values, context-bound
+vendor-defined annotations, and—when routing interactions to the plan's endpoint—forms and
+security. An annotation `@type` adds RDF class membership; it does not identify the view's
+purpose, which `wotproj:scenario` states. Under source routing, forms and
 security remain source-owned and cannot be restated on a selection. A source form must not
 inherit the plan's credentials; each carried form retains its effective source security.
 

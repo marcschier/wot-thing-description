@@ -57,12 +57,11 @@ The examples use `wotproj:` for a proposed WoT projection vocabulary. Its namesp
 term names, and validation format have not been assigned. Example IRIs use
 `https://example.org/` and are placeholders, not stable identifiers.
 
-Explicit projection selectors use the proposed `td:ref` for TD envelopes and the existing
-`tm:ref` for TM envelopes. In this draft, **selector reference** means the applicable member
-for the envelope kind. The term is chosen by the envelope kind, not the source kind.
-`td:` denotes `https://www.w3.org/2019/wot/td#`; defining the proposed `td:ref` requires
-vocabulary, context, validation, and processing changes, not merely declaring a prefix.
-Source floors use `tm:minVersion` for TM sources and `td:minVersion` for TD sources,
+Explicit projection selectors use the existing `tm:ref` in both TD and TM envelopes. The
+projection-plan format reuses this Thing Model term as its selector; its use in a TD envelope
+does not waive the TD forms requirement, which resolution satisfies from the source or the
+projection host. The proposed `td:ref` is not a projection selector.
+`td:` denotes `https://www.w3.org/2019/wot/td#`. Source floors use `tm:minVersion` for TM sources and `td:minVersion` for TD sources,
 under the SemVer profile, independently of the selector term. Incremental source
 requirements follow the separate contract and informative deployment mapping in
 the [versioned-reference proposal][Versioned-reference proposal]; core WoT names
@@ -92,9 +91,9 @@ or the projection endpoint.
 ## 3. Projection envelope
 
 A projection plan MUST use an ordinary TD or TM envelope and MUST include
-`wotproj:Projection` in the root `@type`. It MUST also include exactly one ordinary root kind:
+`wotproj:projection` in the root `@type`. It MUST also include exactly one ordinary root kind:
 `Thing` or `tm:ThingModel`. That ordinary root kind determines the result kind. A separate
-projection-kind member MUST NOT be used.
+`wotproj:projectionKind` member MUST NOT be present.
 
 The envelope MUST include:
 
@@ -107,6 +106,21 @@ The plan uses the ordinary media type for its envelope kind: `application/td+jso
 or `application/tm+json` for a TM. There is no projection-specific media type or stored
 document kind. The projection marker distinguishes an unresolved plan from an ordinary TD
 or TM after retrieval.
+
+`wotproj:scenario` is the machine-readable purpose for which the view is intended. Resolution
+MUST copy the exact IRI to the resolved TD or TM root. The organization or specification that
+establishes a scenario defines its IRI; this proposal defines no scenario identifiers.
+Consumers compare the IRI to identify a view intended for a known purpose. A title, an
+arbitrary `@type`, or a vendor convention does not substitute for it. The scenario is not an
+RDF class: ordinary `@type` assertions on the plan or its selections retain their RDF
+class-membership meaning and do not identify the view's purpose.
+
+`wotproj:projects` is declared as an ordered list (`@container: @list`) in the JSON-LD
+context rather than as a set, because Section 6 ranks selections by source position.
+
+A plan MAY select from a TD, a TM, or another projection plan. Its own root kind governs
+admission of the result. An incomplete TM can remain a TM, but MUST NOT be served as an
+executable TD without completion and full TD validation.
 
 The example vocabulary and syntax below are provisional:
 
@@ -131,10 +145,14 @@ The example vocabulary and syntax below are provisional:
         "@id": "https://www.w3.org/2019/wot/td#minVersion",
         "@type": "http://www.w3.org/2001/XMLSchema#string"
       },
-      "wotproj": "https://example.org/wot/projection#"
+      "wotproj": "https://example.org/wot/projection#",
+      "wotproj:projects": {
+        "@id": "https://example.org/wot/projection#projects",
+        "@container": "@list"
+      }
     }
   ],
-  "@type": ["Thing", "wotproj:Projection"],
+  "@type": ["Thing", "wotproj:projection"],
   "id": "urn:example:building:maintenance-view",
   "title": "Pump condition view",
   "wotproj:scenario": "https://example.org/scenarios/predictive-maintenance",
@@ -152,9 +170,9 @@ The example vocabulary and syntax below are provisional:
   ],
   "properties": {
     "pumpSpeed": {
-      "td:ref": "./pump.td.json#/properties/pumpSpeed",
+      "tm:ref": "./pump.td.json#/properties/pumpSpeed",
       "title": "Pump speed for condition monitoring",
-      "wotproj:semanticId": "https://example.org/ontology/ConditionSignal"
+      "@type": "https://example.org/ontology/ConditionSignal"
     },
     "viewStatus": {
       "type": "string",
@@ -171,9 +189,11 @@ The example vocabulary and syntax below are provisional:
 }
 ```
 
-`pumpSpeed` is an imported selection because its `td:ref` identifies a declared source and
-points to an affordance in the matching map. `viewStatus` is a local definition because it
-does not use a projection-selection reference; it must satisfy ordinary TD requirements.
+`pumpSpeed` is an imported selection because its `tm:ref` identifies a declared source and
+points to an affordance in the matching map. Its `@type` annotation adds ordinary RDF class
+membership for the maintenance model; it does not identify the view's purpose. `viewStatus`
+is a local definition because it does not use a projection-selection reference; it must
+satisfy ordinary TD requirements.
 
 An unresolved plan is not yet an executable TD/TM. Projection-aware admission MUST validate
 the envelope and projection grammar. Local affordances MUST satisfy the ordinary definition
@@ -196,7 +216,7 @@ is resolved against the plan's effective base URI. A processor MUST verify the r
 document's actual kind and MUST NOT infer its kind only from a URI suffix.
 
 A source `href` MUST NOT contain a fragment, and no two manifest entries may resolve to the
-same absolute URI. To identify a source in a selector reference, a processor
+same absolute URI. To identify the source of a `tm:ref` selector, a processor
 resolves the reference against the plan's effective base URI, separates its fragment, and
 matches the remaining absolute URI to exactly one resolved source `href`. The fragment is a
 URI-encoded RFC 6901 JSON Pointer. This matching rule makes the source manifest authoritative
@@ -268,40 +288,56 @@ view or transitive sources. WoT-complete publication follows the
 ## 5. Selection
 
 An affordance-map member in `properties`, `actions`, or `events` is a projection selection
-when its selector reference fragment is a JSON Pointer to a member of a source affordance
+when its `tm:ref` fragment is a JSON Pointer to a member of a source affordance
 map. The target map MUST match the plan member's category, and the target affordance MUST exist.
 The source MUST be declared in `wotproj:projects` and MUST match exactly one source as
 specified in Section 4; an undeclared source, wrong-category target, or missing target is
 an error. The member key in the plan is the selected affordance's name in the resolved view
 and need not match the source name.
 
-A selector reference whose fragment does not point into a source affordance map is not a
-projection selector. If it is otherwise valid, it retains the semantics of its vocabulary.
-A member without a projection-selection reference is a local affordance definition.
-The processor MUST reject an explicit projection selector using `tm:ref` in a TD envelope
-or `td:ref` in a TM envelope; it MUST NOT silently treat it as the other vocabulary's term.
+A `tm:ref` whose fragment does not point into a source affordance map is not a
+projection selector. If it is otherwise valid, it retains its ordinary TD/TM reference
+semantics. A member without a projection-selection reference is a local affordance definition.
+Only `tm:ref` forms a projection selection. A processor MUST NOT treat `td:ref` or any other
+reference member as a projection selector; such a member retains the semantics of its own
+vocabulary.
 
 ### 5.1 Explicit selection and annotations
 
-An explicit selection names one affordance. Its member key names the affordance in the
-resolved view; its selector reference identifies the source definition. It MAY add only the
-following annotation members:
+An explicit selection names one affordance and is the only form that can annotate it. Its
+member key names the affordance in the resolved view; its `tm:ref` identifies the source
+definition. Alongside `tm:ref`, it MAY carry only the following standard annotation members:
 
 - `title` and `titles`;
 - `description` and `descriptions`;
-- additional `@type` values;
-- `wotproj:semanticId` and `wotproj:metadata`; and
-- `forms` and `security` when the source is routed to the projection endpoint, as described
-  in Section 8.
+- additional `@type` values; and
+- `forms` and `security` under the routing rules of Section 8.
 
-Annotations MUST NOT restate or change a source affordance's data schema. Additional
-`@type` values MUST NOT remove source types or change the affordance's ordinary WoT kind.
-Annotation IRIs are interpreted in the plan's effective context. Source-owned definition
-members retain their source's context.
+An explicit selection MAY also carry a vendor-defined annotation whose key is a compact IRI
+with a prefix bound in the plan's effective context. The expanded IRI MUST NOT be in a WoT
+TD, WoT TM, or `wotproj` namespace. The plan's root MAY carry such annotations as well: a
+root annotation applies to the resolved Thing or Thing Model, while a selection annotation is
+merged into the selected affordance. These annotations remain ordinary WoT extension members.
+This proposal defines neither their meaning nor how a consumer uses them, and a processor
+MUST preserve them through resolution.
 
-The selector reference is consumed during resolution. Any `td:ref`, `tm:ref`, or other defined
-reference already present in the source affordance is retained and relocated according to
-Section 7.
+Annotations MUST NOT restate a source affordance's data schema or override a standardized
+TD, TM, or projection member. A view that appeared to change a source's type, unit, or range
+would describe something the source does not offer. Additional `@type` values MUST NOT remove
+source types or change the affordance's ordinary WoT kind. These limits do not apply to local
+affordances, which are complete definitions.
+
+Annotation IRIs are interpreted in the plan's effective context, not in the source's
+context. Source-owned definition members retain their source's context. A vendor-defined
+annotation is copied with its JSON value. Its prefix binding is retained on the resolved
+affordance when the source's effective context does not bind that prefix. If the source binds
+the same prefix to a different namespace, resolution MUST fail rather than change the meaning
+of either document.
+
+The selector's `tm:ref` is consumed during resolution; it is the only member discarded. Any
+`tm:ref`, `td:ref`, or other defined reference already present in the source affordance is
+not another selector. It is retained and relocated by source identity and original reference
+origin according to Section 7.
 
 ### 5.2 Whole-source selection
 
@@ -314,20 +350,24 @@ upper-cased. For example, source name `serialNumber` with prefix `device` become
 
 ### 5.3 Predicate selection
 
-`wotproj:select` is an array of filter objects. A filter object MAY contain only:
+`wotproj:select` is an array of filter objects. A filter object MAY constrain only:
 
-- `wotproj:affordanceKind`: `property`, `action`, or `event`;
-- `wotproj:semanticId`: an IRI to match against the affordance's semantic identifier; and
+- `wotproj:affordanceKind`: `property`, `action`, or `event`; and
 - `@type`: one type IRI or an array of type IRIs.
 
-The constraints in one filter object are conjunctive. Multiple filter objects are
-disjunctive. When `@type` is an array, an affordance matches only if it has every listed
-type. A predicate selects all matching affordances in the source. Predicates MUST NOT
-contain other members, executable expressions, wildcard syntax, or implementation-defined
-operators.
+A filter object MUST NOT carry any other member. The constraints in one filter object are
+conjunctive. Multiple filter objects are disjunctive. When `@type` is an array, an affordance
+matches only if it has every listed type. A predicate selects all matching affordances in the
+source.
 
-Predicate matching MUST compare semantic identifiers and types by expanded JSON-LD meaning,
-not by compact spelling.
+The predicate set is closed. It admits no pattern language, expression language, wildcard
+syntax, or implementation-defined operator, so two implementations cannot disagree about what
+a filter selects.
+
+A `@type` filter MUST compare types by exact expanded-IRI membership, not by compact
+spelling. A processor MUST NOT infer subclass relationships. A type filter compares ordinary
+JSON-LD class IRIs; the shared definition of a class, not the presence of the tag alone,
+gives it interoperable meaning.
 
 ### 5.4 Local affordances
 
@@ -370,7 +410,7 @@ Resolution MUST:
 1. Validate the marked envelope and projection grammar.
 2. Resolve and validate every source, apply its profile-specific requirement, and verify
    any declared source digest.
-3. Recursively resolve source projection plans while detecting cycles.
+3. Recursively resolve source projection plans depth-first while detecting cycles.
 4. Identify explicit, bulk, and predicate selections.
 5. Apply deterministic imported-selection precedence and local-definition precedence.
 6. Copy each selected definition with permitted annotations.
@@ -380,7 +420,8 @@ Resolution MUST:
 10. Validate the completed ordinary TD or TM.
 
 Resolution is atomic. Failure at any step MUST produce an error and no partial resolved
-document.
+document. A source-routed executable TD affordance MUST have non-empty source forms, and a
+projection-routed affordance MUST receive actual host forms.
 
 ### 7.1 Dependencies and references
 
@@ -391,8 +432,26 @@ Carried support definitions MUST NOT replace selected or owner definitions. A de
 reference MUST target the definition copied for its source, never a same-named definition
 owned by another source.
 
+Supporting definitions MUST be carried without schema overrides. Each merged subtree retains
+its owner and original location. A projection-owned form's URI variables, response schemas,
+and semantic context belong to the projection owner, even when a source declares the same
+names. Source-owned data and security definitions retain source ownership.
+
+The processor MUST maintain a mapping from source-document identity and canonical JSON
+Pointer to output pointer. An already selected identical dependency is reused under its
+selected output name. Otherwise, the processor allocates a support name deterministically
+without replacing an existing selection or owner definition. A support name can retain a
+free source name. On collision, the processor uses
+`q:d:<B64u(sourceName)>:<B64u(sourcePointer)>`, adding the first unused positive numeric
+suffix where an authored name already occupies that spelling. B64u is unpadded base64url of
+the exact UTF-8 bytes. Closure traversal MUST use code-point order for object members and
+preserve the order of source arrays. Required source URI variables can be carried at the
+affordance scope, where same-named variables from different sources remain distinct.
+
 The processor MUST distinguish definitions by expanded identity and context-resolved facts,
-not by lexical prefixes alone. It MUST preserve literal values and opaque metadata; dependency
+not by lexical prefixes alone. A data type definition is reused only when its expanded
+identifier and context-resolved facts agree. It MUST preserve literal values and opaque
+metadata; dependency
 discovery and reference relocation MUST NOT search or rewrite values such as `const`,
 `default`, `enum`, or `examples`, or opaque extension payloads.
 
@@ -409,7 +468,9 @@ provenance reference MUST be resolved against the original source document URI b
 definition is moved.
 
 An affordance already carrying provenance retains that original provenance through
-subsequent projection resolution. Local affordances MUST NOT receive synthetic provenance.
+subsequent projection resolution. An intermediate bulk plan is not substituted for an
+original definition that is absent from that plan's stored body. Local affordances MUST NOT
+receive synthetic provenance.
 
 ### 7.3 URI references and forms
 
@@ -436,7 +497,8 @@ retains the effective ordered, local, and term-scoped context of its original ow
 data and security definitions retain source contexts. Plan-owned forms and their dependencies
 retain the plan's context.
 
-Compact prefix spelling alone does not establish namespace identity. Selection predicates
+Compact prefix spelling alone does not establish namespace identity. Equal prefix spellings
+in different owner scopes are not by themselves a conflict. Selection predicates
 and reference comparisons MUST use expanded semantic identities. A processor MAY serialize
 scoped context differences or equivalent deterministic namespace-qualified names, provided
 that it preserves opaque lexical values and the original context interpretation.
@@ -460,6 +522,10 @@ A source form MUST NOT inherit credentials or security defaults from the plan. T
 MUST preserve the form's effective security according to the applicable TD/TM rules,
 including any inherited source-level security. It MUST NOT invent or weaken a security
 policy; a missing, cyclic, or contradictory security dependency MUST fail resolution.
+An absent source security declaration is not permission to manufacture anonymous access.
+Every carried executable form MUST state its own qualified effective security. Under
+`projection` routing, only explicitly authored or host-supplied forms use the qualified plan
+security; a source form MUST NOT be reused with plan credentials.
 
 Source-owned security definitions are qualified in the result as
 `q:s:<encoded-source-name>:<encoded-scheme-name>`. Plan-owned security definitions use
@@ -495,7 +561,7 @@ who would not otherwise receive the individual sources.
 ## 10. Example
 
 The example in Section 3 selects properties of a pump by predicate and adds a title and
-semantic identifier to the explicitly selected `pumpSpeed` property. Its `viewStatus`
+an RDF class to the explicitly selected `pumpSpeed` property. Its `viewStatus`
 property is local to the projection plan. Resolution imports selected source definitions,
 applies the permitted annotations, preserves each source's forms and security under
 source routing, retains provenance for imported properties, and combines them with the
