@@ -440,13 +440,13 @@ The SemVer floor terms remain provisional. Incremental requirements use the OPC 
 
 Live selection depends on a provider contract that exposes trusted profile, sequence and sticky-default metadata. Snapshot-bound composition uses the exact bindings and fixed metadata in the selected snapshot. This proposal defines neither a provider-discovery mechanism nor a publication API or manifest format. Independent implementation evidence is still required for compatibility checks, closure discovery, snapshot acceptance and offline replay; examples and schema checks do not establish those behaviors.
 
-The source references below pin the xRegistry PR head reviewed for this alignment, `2e3d81690191439212fb0fc415e58afbcc1c0f0b` from [xregistry/spec#571](https://github.com/xregistry/spec/pull/571). A later editorial or design revision requires another comparison; the linked design prose is not normative W3C authority.
+The source references below pin the xRegistry PR head reviewed for this alignment, `1acf23e095902cfbb7dac302ec3cbe55b0853278` from [xregistry/spec#571](https://github.com/xregistry/spec/pull/571). A later editorial or design revision requires another comparison; the linked design prose is not normative W3C authority.
 
-[xRegistry WoT]: https://github.com/marcschier/xregistry-drafts/blob/2e3d81690191439212fb0fc415e58afbcc1c0f0b/workingdrafts/models/wot/spec.md
-[xRegistry decisions]: https://github.com/marcschier/xregistry-drafts/blob/2e3d81690191439212fb0fc415e58afbcc1c0f0b/workingdrafts/models/wot/decisions.md
-[xRegistry versioning]: https://github.com/marcschier/xregistry-drafts/blob/2e3d81690191439212fb0fc415e58afbcc1c0f0b/workingdrafts/publication/design/design.md#wot-versioning-design-and-operating-workflows
-[xRegistry overview]: https://github.com/marcschier/xregistry-drafts/blob/2e3d81690191439212fb0fc415e58afbcc1c0f0b/workingdrafts/publication/design/design.md#wot-versioning-design-overview
-[xRegistry WoT publication]: https://github.com/marcschier/xregistry-drafts/blob/2e3d81690191439212fb0fc415e58afbcc1c0f0b/workingdrafts/publication/design/design.md#wot-channels-snapshots-and-dependency-bindings
-[xRegistry publication]: https://github.com/marcschier/xregistry-drafts/blob/2e3d81690191439212fb0fc415e58afbcc1c0f0b/workingdrafts/publication/spec.md
-[xRegistry federation]: https://github.com/marcschier/xregistry-drafts/blob/2e3d81690191439212fb0fc415e58afbcc1c0f0b/workingdrafts/federation/spec.md
-[xRegistry HTTP]: https://github.com/marcschier/xregistry-drafts/blob/2e3d81690191439212fb0fc415e58afbcc1c0f0b/workingdrafts/bindings/http-federation.md
+[xRegistry WoT]: https://github.com/marcschier/xregistry-drafts/blob/1acf23e095902cfbb7dac302ec3cbe55b0853278/workingdrafts/models/wot/spec.md
+[xRegistry decisions]: https://github.com/marcschier/xregistry-drafts/blob/1acf23e095902cfbb7dac302ec3cbe55b0853278/workingdrafts/models/wot/decisions.md
+[xRegistry versioning]: https://github.com/marcschier/xregistry-drafts/blob/1acf23e095902cfbb7dac302ec3cbe55b0853278/workingdrafts/publication/design/design.md#wot-versioning-design-and-operating-workflows
+[xRegistry overview]: https://github.com/marcschier/xregistry-drafts/blob/1acf23e095902cfbb7dac302ec3cbe55b0853278/workingdrafts/publication/design/design.md#wot-versioning-design-overview
+[xRegistry WoT publication]: https://github.com/marcschier/xregistry-drafts/blob/1acf23e095902cfbb7dac302ec3cbe55b0853278/workingdrafts/publication/design/design.md#wot-channels-snapshots-and-dependency-bindings
+[xRegistry publication]: https://github.com/marcschier/xregistry-drafts/blob/1acf23e095902cfbb7dac302ec3cbe55b0853278/workingdrafts/publication/spec.md
+[xRegistry federation]: https://github.com/marcschier/xregistry-drafts/blob/1acf23e095902cfbb7dac302ec3cbe55b0853278/workingdrafts/federation/spec.md
+[xRegistry HTTP]: https://github.com/marcschier/xregistry-drafts/blob/1acf23e095902cfbb7dac302ec3cbe55b0853278/workingdrafts/bindings/http-federation.md
